@@ -10,8 +10,8 @@ use ExtUtils::MakeMaker 6.30;
 
 
 my %WriteMakefileArgs = (
-  "ABSTRACT" => "Dist::Zilla requirement",
-  "AUTHOR" => "Gideon Knocke <gideonknocke\@gmail.com>",
+  "ABSTRACT" => "Parses PKCS #10 requests to perl data structure.",
+  "AUTHOR" => "Gideon Knocke <gknocke\@cpan.org>",
   "CONFIGURE_REQUIRES" => {
     "ExtUtils::MakeMaker" => "6.30"
   },

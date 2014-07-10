@@ -4,10 +4,8 @@ use strict;
 use warnings;
 use Exporter;
 use Convert::ASN1 qw(:debug);
-use Data::HexDump;
 use MIME::Base64;
 use Data::Dumper;
-# ABSTRACT: Dist::Zilla requirement
 $Data::Dumper::Useqq = 1;
 
 our @EXPORT  = qw();
@@ -99,8 +97,7 @@ sub convert_attributes {
     	 	$_->{'type'} = $oids{ $_->{'type'} };
     	 	my $parser = _init($_->{'type'}) or die "Parser error: ", $_->{'type'}, " needs entry in ASN.1 definition!";
     	 	if ($_->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
-                #In case the DER representation of 'extensionRequest' is needed. works for each attribute.
-                #print HexDump($_->{'values'}[0]);   	 		
+                #In case the DER representation of 'extensionRequest' is needed. works for each attribute.	 		
                 $_->{'values'} = convert_extensionRequest($_->{'values'}[0]);
     	 	}
     	 	else {
@@ -378,47 +375,3 @@ sub certificateTemplate {
 1;
 
 __END__
-
-=pod
-
-=encoding UTF-8
-
-=head1 NAME
-
-Crypt::PKCS10 - Dist::Zilla requirement
-
-=head1 VERSION
-
-version 0.01
-
-=head1 NAME
-
-Crypt::PKCS10 - Dist::Zilla requirement
-
-=head1 VERSION
-
-version 0.001
-
-=head1 AUTHOR
-
-Gideon Knocke <gideonknocke@gmail.com>
-
-=head1 COPYRIGHT AND LICENSE
-
-This software is copyright (c) 2014 by Gideon Knocke.
-
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
-
-=head1 AUTHOR
-
-Gideon Knocke <gideonknocke@gmail.com>
-
-=head1 COPYRIGHT AND LICENSE
-
-This software is copyright (c) 2014 by Gideon Knocke.
-
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
-
-=cut

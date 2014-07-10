@@ -1,7 +1,6 @@
 ---
-abstract: 'Dist::Zilla requirement'
 author:
-  - 'Gideon Knocke <gideonknocke@gmail.com>'
+  - 'Gideon Knocke <gknocke@cpan.org>'
 build_requires: {}
 configure_requires:
   ExtUtils::MakeMaker: '6.30'
@@ -14,4 +13,4 @@ meta-spec:
 name: Crypt-PKCS10
 requires:
   Convert::ASN1: '0.27'
-version: '0.01'
+version: '0.1'

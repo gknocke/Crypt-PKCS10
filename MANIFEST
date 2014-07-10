@@ -4,5 +4,5 @@ MANIFEST
 META.yml
 Makefile.PL
 README
-dist.ini
 lib/Crypt/PKCS10.pm
+t/Crypt-PKCS10.t
