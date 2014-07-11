@@ -2,7 +2,7 @@
 # `make test'. After `make install' it should work as `perl Crypt-X509-CRL.t'
 use Test::More tests => 7;
 BEGIN { use_ok('Crypt::PKCS10') }
-$csr = loadcsr('csr.pem');
+$csr = loadcsr('t/csr.pem');
 is( length $csr, 1078, 'csr file loaded' );
 $decoded = Crypt::PKCS10->new( $csr );
 ok( defined $decoded, 'new() successful' );
