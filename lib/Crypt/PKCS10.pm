@@ -108,22 +108,29 @@ sub new {
     no bytes;
     
     my $self = $parser->decode($substr) or die "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
+
     my $req->{'certificationRequestInfo'}{'subject'}
-        = convert_rdn( $self->{'certificationRequestInfo'}{'subject'} );
+        = _convert_rdn( $self->{'certificationRequestInfo'}{'subject'} );
+
     $req->{'certificationRequestInfo'}{'version'}
         = $self->{'certificationRequestInfo'}{'version'};
-    $req->{'certificationRequestInfo'}{'attributes'} = convert_attributes(
+
+    $req->{'certificationRequestInfo'}{'attributes'} = _convert_attributes(
         $self->{'certificationRequestInfo'}{'attributes'} );
-    $req->{'certificationRequestInfo'}{'subjectPKInfo'} = convert_pkinfo(
+
+    $req->{'certificationRequestInfo'}{'subjectPKInfo'} = _convert_pkinfo(
         $self->{'certificationRequestInfo'}{'subjectPKInfo'} );
+
     $req->{'signature'} = $self->{'signature'};
+
     $req->{'signatureAlgorithm'}
-        = convert_signatureAlgorithm( $self->{'signatureAlgorithm'} );
+        = _convert_signatureAlgorithm( $self->{'signatureAlgorithm'} );
+
     bless( $req, $class );
     return $req;
 }
 
-sub convert_signatureAlgorithm {
+sub _convert_signatureAlgorithm {
     my $signatureAlgorithm = shift;
     $signatureAlgorithm->{'algorithm'}
         = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
@@ -134,7 +141,7 @@ sub convert_signatureAlgorithm {
     return $signatureAlgorithm;
 }
 
-sub convert_pkinfo {
+sub _convert_pkinfo {
     my $pkinfo = shift;
     $pkinfo->{'algorithm'}{'algorithm'}
         = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
@@ -144,7 +151,7 @@ sub convert_pkinfo {
     return $pkinfo;
 }
 
-sub convert_attributes {
+sub _convert_attributes {
     my $typeandvalues = shift;
     foreach ( @{$typeandvalues} ) {
          if (defined $oids{ $_->{'type'}}) {
@@ -153,7 +160,7 @@ sub convert_attributes {
 
             if ($_->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
                 #In case the DER representation of 'extensionRequest' is needed. works for each attribute.          
-                $_->{'values'} = convert_extensionRequest($_->{'values'}[0]);
+                $_->{'values'} = _convert_extensionRequest($_->{'values'}[0]);
             }
             else {
                 #maybe there can be more than one value, haven't seen jet. 
@@ -165,7 +172,7 @@ sub convert_attributes {
     return $typeandvalues;
 }
 
-sub convert_extensionRequest {
+sub _convert_extensionRequest {
     my $extensionRequest = shift;
     my $parser = _init('extensionRequest');
     my $decoded = $parser->decode($extensionRequest) or die $parser->error, ".. looks like damaged input";
@@ -176,13 +183,13 @@ sub convert_extensionRequest {
             $_->{'extnValue'} = $parser->decode($_->{'extnValue'}) or die $parser->error, ".. looks like damaged input";
             
             #extension specific mapping
-            $_->{'extnValue'} = mapExtensions($_->{'extnID'}, $_->{'extnValue'});
+            $_->{'extnValue'} = _mapExtensions($_->{'extnID'}, $_->{'extnValue'});
         }
     }
     return $decoded;
 }
 
-sub mapExtensions {
+sub _mapExtensions {
     my $id =shift;
     my $value = shift;
     if ($id eq 'KeyUsage') {
@@ -210,7 +217,7 @@ sub mapExtensions {
 }
 
 
-sub convert_rdn {
+sub _convert_rdn {
     my $typeandvalue = shift;
     my %hash;
     foreach ( @{$typeandvalue}) {
@@ -363,6 +370,10 @@ sub organizationalUnitName {
         {'organizationalUnitName'}{'utf8String'} || '';
 }
 
+
+###########################################################################
+# interface methods
+
 sub emailAddress {
     my $self = shift;
     return $self->{'certificationRequestInfo'}{'subject'}{'emailAddress'}
@@ -432,6 +443,7 @@ sub certificateTemplate {
     }
     return $template; 
 }
+
 1;
 
 __END__
