@@ -1,3 +1,23 @@
+#
+# Crypt::PKCS10
+#
+# PKCS #10 certificate request parser
+#
+# This software is copyright (c) 2014 by Gideon Knocke.
+#
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
+#
+# Terms of the Perl programming language system itself
+#
+# a) the GNU General Public License as published by the Free
+#   Software Foundation; either version 1, or (at your option) any
+#   later version, or
+# b) the "Artistic License"
+#
+# See LICENSE for details.
+#
+
 package Crypt::PKCS10;
 
 use strict;
@@ -415,3 +435,71 @@ sub certificateTemplate {
 1;
 
 __END__
+
+=head1 NAME
+
+Crypt::PKCS10 - Parse PKCS #10 certificate requests
+
+=head1 SYNOPSIS
+
+    use Crypt::PKCS10;
+
+    my $decoded = Crypt::PKCS10->new( $csr );
+    my $cn = $decoded->commonName();
+
+=head1 REQUIRES
+
+Convert::ASN1
+
+=head1 DESCRIPTION
+
+
+=head1 CONSTRUCTOR
+
+=head2 new
+
+
+=head1 METHODS
+
+=head2 commonName
+
+=head2 organizationalUnitName
+
+=head2 emailAddress
+
+=head2 stateOrProvinceName
+
+=head2 countryName
+
+=head2 version
+
+=head2 pkAlgorithm
+
+=head2 subjectPublicKey
+
+=head2 signatureAlgorithm
+
+=head2 signature
+
+=head2 attributes
+
+=head2 certificateTemplate
+
+=head1 AUTHORS
+
+Gideon Knocke
+
+=head1 COPYRIGHT
+
+This software is copyright (c) 2014 by Gideon Knocke.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+Terms of the Perl programming language system itself
+
+a) the GNU General Public License as published by the Free
+   Software Foundation; either version 1, or (at your option) any
+   later version, or
+
+b) the "Artistic License"
