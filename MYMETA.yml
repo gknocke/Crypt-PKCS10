@@ -1,0 +1,18 @@
+---
+abstract: unknown
+author:
+  - 'Gideon Knocke <gknocke@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 0
+configure_requires:
+  ExtUtils::MakeMaker: 6.30
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 5.019, CPAN::Meta::Converter version 2.141520, CPAN::Meta::Converter version 2.132830'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Crypt-PKCS10
+requires:
+  Convert::ASN1: 0.27
+version: 0.1

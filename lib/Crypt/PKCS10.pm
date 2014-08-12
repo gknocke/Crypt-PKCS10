@@ -3,10 +3,8 @@ package Crypt::PKCS10;
 use strict;
 use warnings;
 use Exporter;
-use Convert::ASN1 qw(:debug);
+use Convert::ASN1 qw(:all);
 use MIME::Base64;
-use Data::Dumper;
-$Data::Dumper::Useqq = 1;
 
 our @EXPORT  = qw();
 our @ISA     = qw(Exporter);
@@ -22,27 +20,54 @@ my %oids = (
     '1.2.840.113549.1.9.2' => 'unstructuredName',
     '1.2.840.113549.1.9.7' => 'challengePassword',
     '1.2.840.113549.1.1.1' => 'RSA encryption',
-    '1.2.840.113549.1.1.5' => 'SHA-1 with RSA Encryption',
+    '1.2.840.113549.1.1.5' => 'SHA1 with RSA encryption',
+    '1.2.840.113549.1.1.4' => 'MD5 with RSA encryption',
     '1.2.840.113549.1.9.14' => 'extensionRequest',
     '1.3.6.1.4.1.311.13.2.3' => 'OS_Version',
     '1.3.6.1.4.1.311.13.2.2' => 'EnrollmentCSP',
     '1.3.6.1.4.1.311.21.20' => 'ClientInformation',
     '1.3.6.1.4.1.311.21.7' => 'certificateTemplate',
-    '2.5.29.37'			   => 'EnhancedKeyUsage',
-    '2.5.29.15' 		   => 'KeyUsage',
+    '2.5.29.37'            => 'EnhancedKeyUsage',
+    '2.5.29.15'            => 'KeyUsage',
     '1.3.6.1.4.1.311.21.10' => 'ApplicationCertPolicies',
-    '2.5.29.14' 		    => 'SubjectKeyIdentifier',
+    '2.5.29.14'             => 'SubjectKeyIdentifier',
     '2.5.29.17'             => 'subjectAltName',
-    '1.3.6.1.4.1.311.20.2'  => 'certificateTemplateName'
+    '1.3.6.1.4.1.311.20.2'  => 'certificateTemplateName',
+    #untested
+    '2.5.29.19'                     => 'Basic Constraints',#ASN
+    '1.2.840.10040.4.1'             => 'DSA',
+    '1.2.840.10040.4.3'             => 'DSA with SHA1',
+    '0.9.2342.19200300.100.1.25'    => 'domainComponent',
+    '2.5.4.7'                       => 'localityName', #ASN
+    '1.2.840.113549.1.1.11'         => 'SHA-256 with RSA encryption',
+    '1.2.840.113549.1.1.13'         => 'SHA-512 with RSA encryption',
+    '1.2.840.113549.1.1.2'          => 'MD2 with RSA encryption',
+    '1.2.840.113549.1.9.15'         => 'SMIMECapabilities', #ASN
+    '1.3.14.3.2.29'                 => 'SHA1 with RSA signature',
+    '1.3.6.1.4.1.311.13.1'          => 'RENEWAL_CERTIFICATE', #MS
+    '1.3.6.1.4.1.311.13.2.1'        => 'ENROLLMENT_NAME_VALUE_PAIR', #MS
+    '1.3.6.1.4.1.311.13.2.2'        => 'ENROLLMENT_CSP_PROVIDER', #MS
+    '1.3.6.1.4.1.311.2.1.14'        => 'CERT_EXTENSIONS', #MS
+    '1.3.6.1.5.2.3.5'               => 'KDC Authentication',
+    '1.3.6.1.5.5.7.9.5'             => 'countryOfResidence',
+    '2.16.840.1.101.3.4.2.1'        => 'SHA-256',
+    '2.5.4.12'                      => 'Title', #ASN
+    '2.5.4.13'                      => 'Description', #ASN
+    '2.5.4.17'                      => 'postalCode', #ASN
+    '2.5.4.4'                       => 'Surname', #ASN
+    '2.5.4.41'                      => 'Name', #ASN
+    '2.5.4.42'                      => 'givenName', #ASN
+    '2.5.4.46'                      => 'dnQualifier', #ASN
+    '2.5.4.12'                      => 'serialNumber', #ASN    
 );
 
 my %oid2extkeyusage = (
-						'1.3.6.1.5.5.7.3.1' => 'serverAuth',
-						'1.3.6.1.5.5.7.3.2' => 'clientAuth',
-						'1.3.6.1.5.5.7.3.3' => 'codeSigning',
-						'1.3.6.1.5.5.7.3.4' => 'emailProtection',
-						'1.3.6.1.5.5.7.3.8' => 'timeStamping',
-						'1.3.6.1.5.5.7.3.9' => 'OCSPSigning',
+                        '1.3.6.1.5.5.7.3.1' => 'serverAuth',
+                        '1.3.6.1.5.5.7.3.2' => 'clientAuth',
+                        '1.3.6.1.5.5.7.3.3' => 'codeSigning',
+                        '1.3.6.1.5.5.7.3.4' => 'emailProtection',
+                        '1.3.6.1.5.5.7.3.8' => 'timeStamping',
+                        '1.3.6.1.5.5.7.3.9' => 'OCSPSigning',
 );
 
 sub new {
@@ -53,8 +78,16 @@ sub new {
     if($der =~ /^\W+\w+\s+\w+\s+\w+\W+\s(.*)\s+\W+.*$/s) { #if PEM, convert to DER
         $der = decode_base64($1);
     }
+    #comment in if you get parser errors
+    #asn_dump($der);
 
-    my $self   = $parser->decode($der) or die "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
+    use bytes;
+    #some Requests may contain information outside of the regular ASN.1 structure. These parts need to be stripped of
+    my $i = unpack("n*", substr($der, 2, 2)) + 4;
+    my $substr = substr $der, 0, $i;
+    no bytes;
+    
+    my $self = $parser->decode($substr) or die "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
     my $req->{'certificationRequestInfo'}{'subject'}
         = convert_rdn( $self->{'certificationRequestInfo'}{'subject'} );
     $req->{'certificationRequestInfo'}{'version'}
@@ -74,8 +107,9 @@ sub convert_signatureAlgorithm {
     my $signatureAlgorithm = shift;
     $signatureAlgorithm->{'algorithm'}
         = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
+  
     if ($signatureAlgorithm->{'parameters'}{'undef'}) {
-    	delete ($signatureAlgorithm->{'parameters'});
+        delete ($signatureAlgorithm->{'parameters'});
     }
     return $signatureAlgorithm;
 }
@@ -85,7 +119,7 @@ sub convert_pkinfo {
     $pkinfo->{'algorithm'}{'algorithm'}
         = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
     if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
-    	delete ($pkinfo->{'algorithm'}{'parameters'});
+        delete ($pkinfo->{'algorithm'}{'parameters'});
     }   
     return $pkinfo;
 }
@@ -93,64 +127,66 @@ sub convert_pkinfo {
 sub convert_attributes {
     my $typeandvalues = shift;
     foreach ( @{$typeandvalues} ) {
-    	 if (defined $oids{ $_->{'type'}}) {
-    	 	$_->{'type'} = $oids{ $_->{'type'} };
-    	 	my $parser = _init($_->{'type'}) or die "Parser error: ", $_->{'type'}, " needs entry in ASN.1 definition!";
-    	 	if ($_->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
-                #In case the DER representation of 'extensionRequest' is needed. works for each attribute.	 		
+         if (defined $oids{ $_->{'type'}}) {
+            $_->{'type'} = $oids{ $_->{'type'} };
+            my $parser = _init($_->{'type'}) or die "Parser error: ", $_->{'type'}, " needs entry in ASN.1 definition!";
+
+            if ($_->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
+                #In case the DER representation of 'extensionRequest' is needed. works for each attribute.          
                 $_->{'values'} = convert_extensionRequest($_->{'values'}[0]);
-    	 	}
-    	 	else {
+            }
+            else {
                 #maybe there can be more than one value, haven't seen jet. 
-                if($_->{'values'}[1]) {warn "Incomplete parsing of attribute type: ", $_->{'type'};}
-    	 		$_->{'values'} = $parser->decode($_->{'values'}[0]) or die $parser->error, ".. looks like damaged input";
-    	 	}
-    	 }    
+                if($_->{'values'}[1]) {die "Incomplete parsing of attribute type: ", $_->{'type'};}
+                $_->{'values'} = $parser->decode($_->{'values'}[0]) or die ".. looks like damaged input";
+            }
+         }    
     }
     return $typeandvalues;
 }
 
 sub convert_extensionRequest {
-	my $extensionRequest = shift;
-	my $parser = _init('extensionRequest');
-	my $decoded = $parser->decode($extensionRequest) or die $parser->error, ".. looks like damaged input";
-	foreach (@{$decoded}) {
-		if (defined $oids{ $_->{'extnID'}}) {
-			$_->{'extnID'} = $oids{ $_->{'extnID'} };
-			my $parser = _init($_->{'extnID'}) or die "parser error: ", $_->{'extnID'}, " needs entry in ASN.1 definition!";
-			$_->{'extnValue'} = $parser->decode($_->{'extnValue'}) or die $parser->error, ".. looks like damaged input";
-			#extension specific mapping
-			$_->{'extnValue'} = mapExtensions($_->{'extnID'}, $_->{'extnValue'});
-		}
-	}
-	return $decoded;
+    my $extensionRequest = shift;
+    my $parser = _init('extensionRequest');
+    my $decoded = $parser->decode($extensionRequest) or die $parser->error, ".. looks like damaged input";
+    foreach (@{$decoded}) {        
+        if (defined $oids{ $_->{'extnID'}}) {
+            $_->{'extnID'} = $oids{ $_->{'extnID'} };
+            my $parser = _init($_->{'extnID'}) or die "parser error: ", $_->{'extnID'}, " needs entry in ASN.1 definition!";
+            $_->{'extnValue'} = $parser->decode($_->{'extnValue'}) or die $parser->error, ".. looks like damaged input";
+            
+            #extension specific mapping
+            $_->{'extnValue'} = mapExtensions($_->{'extnID'}, $_->{'extnValue'});
+        }
+    }
+    return $decoded;
 }
 
 sub mapExtensions {
-	my $id =shift;
-	my $value = shift;
-	if ($id eq 'KeyUsage') {
-		#cannot see an easier way for this stupid task
-		my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
-		my $length = int(log($bit) / log(2) + 1); # some algebra to get the bit length
-		my @usages = reverse(qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly));
-		my $shift = ($#usages + 1) - $length; # computes the area we dont need in @usages
-		$value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; # ugly hack to transfer bitmap to barewords
-	}
-	if ($id eq 'EnhancedKeyUsage') {
-		foreach(@{$value}) {
-			$_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
-		}		
-	}
-	if ($id eq 'SubjectKeyIdentifier') {
-		$value = (unpack "H*", $value);
-	}
-	if ($id eq 'ApplicationCertPolicies') {
-		foreach(@{$value}) {
-			$_->{'policyIdentifier'} = $oid2extkeyusage{$_->{'policyIdentifier'}} if(defined $oid2extkeyusage{$_->{'policyIdentifier'}});
-		}		
-	}
-	return $value
+    my $id =shift;
+    my $value = shift;
+    if ($id eq 'KeyUsage') {
+        #cannot see an easier way for this stupid task
+        my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
+        my $length = int(log($bit) / log(2) + 1); # some algebra to get the bit length
+        my @usages = reverse(qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly));
+        my $shift = ($#usages + 1) - $length; # computes the area we dont need in @usages
+        $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; # ugly hack to transfer bitmap to barewords
+    }
+    if ($id eq 'EnhancedKeyUsage') {
+        foreach(@{$value}) {
+            $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
+        }       
+    }
+    if ($id eq 'SubjectKeyIdentifier') {
+        $value = (unpack "H*", $value);
+    }
+    if ($id eq 'ApplicationCertPolicies') {
+        foreach(@{$value}) {
+            $_->{'policyIdentifier'} = $oid2extkeyusage{$_->{'policyIdentifier'}} if(defined $oid2extkeyusage{$_->{'policyIdentifier'}});
+        }       
+    }
+    return $value
 }
 
 
@@ -158,19 +194,20 @@ sub convert_rdn {
     my $typeandvalue = shift;
     my %hash;
     foreach ( @{$typeandvalue}) {
-    	if (defined $oids{ $_->[0]->{'type'}}) {
-    		$hash{ $oids{ $_->[0]->{'type'} } } = $_->[0]->{'value'};
-    	}
-	}
+        if (defined $oids{ $_->[0]->{'type'}}) {
+            $hash{ $oids{ $_->[0]->{'type'} } } = $_->[0]->{'value'};
+        }
+    }
     return \%hash;
 }
 
 sub _init {
-	my $node = shift;
-	if ( !defined $node ) { $node = 'CertificationRequest' }
+    my $node = shift;
+    if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
     $asn->prepare(<<ASN1);
-	DirectoryString ::= CHOICE {
+    
+    DirectoryString ::= CHOICE {
       teletexString   TeletexString,
       printableString PrintableString,
       bmpString       BMPString,
@@ -180,88 +217,89 @@ sub _init {
       integer         INTEGER}
 
     Algorithms ::= CHOICE {
-    	undef 		  ANY
+        undef         ANY
     }
 
-	Name ::= SEQUENCE OF RelativeDistinguishedName
-	RelativeDistinguishedName ::= SET OF AttributeTypeAndValue
-	AttributeTypeAndValue ::= SEQUENCE {
-	  type  OBJECT IDENTIFIER,
-	  value DirectoryString}
+    Name ::= SEQUENCE OF RelativeDistinguishedName
+    RelativeDistinguishedName ::= SET OF AttributeTypeAndValue
+    AttributeTypeAndValue ::= SEQUENCE {
+      type  OBJECT IDENTIFIER,
+      value DirectoryString}
 
-	Attributes ::= SET OF Attribute
-	Attribute ::= SEQUENCE {
-	  type   OBJECT IDENTIFIER,
-	  values SET OF ANY}
+    Attributes ::= SET OF Attribute
+    Attribute ::= SEQUENCE {
+      type   OBJECT IDENTIFIER,
+      values SET OF ANY}
 
 
-	AlgorithmIdentifier ::= SEQUENCE {
-	  algorithm  OBJECT IDENTIFIER,
-	  parameters Algorithms}
+    AlgorithmIdentifier ::= SEQUENCE {
+      algorithm  OBJECT IDENTIFIER,
+      parameters Algorithms}
 
-	SubjectPublicKeyInfo ::= SEQUENCE {
-	  algorithm        AlgorithmIdentifier,
-	  subjectPublicKey BIT STRING}
+    SubjectPublicKeyInfo ::= SEQUENCE {
+      algorithm        AlgorithmIdentifier,
+      subjectPublicKey BIT STRING}
 
-	--- Certificate Request ---
+    --- Certificate Request ---
+    
+    CertificationRequest ::= SEQUENCE {
+      certificationRequestInfo  CertificationRequestInfo,
+      signatureAlgorithm        AlgorithmIdentifier,
+      signature                 BIT STRING},
 
-	CertificationRequest ::= SEQUENCE {
-	  certificationRequestInfo 	CertificationRequestInfo,
-	  signatureAlgorithm  		AlgorithmIdentifier,
-	  signature         		BIT STRING}
+    CertificationRequestInfo ::= SEQUENCE {
+      version       INTEGER ,
+      subject       Name OPTIONAL,
+      subjectPKInfo SubjectPublicKeyInfo,
+      attributes    [0] Attributes OPTIONAL}
 
-	CertificationRequestInfo ::= SEQUENCE {
-	  version       INTEGER ,
-	  subject       Name OPTIONAL,
-	  subjectPKInfo SubjectPublicKeyInfo,
-	  attributes    [0] Attributes OPTIONAL}
+    --- Extensions ---
 
-	--- Extensions ---
+    OS_Version ::= IA5String
+    emailAddress ::= IA5String
 
-	OS_Version ::= IA5String
+    EnrollmentCSP ::= SEQUENCE {
+        KeySpec     INTEGER,
+        Name        BMPString,
+        Signature   BIT STRING}
 
-	EnrollmentCSP ::= SEQUENCE {
-		KeySpec		INTEGER,
-		Name		BMPString,
-		Signature	BIT STRING}
+    ClientInformation ::= SEQUENCE {
+        ClientID    INTEGER,
+        User        UTF8String,
+        Machine     UTF8String,
+        Process     UTF8String}
 
-	ClientInformation ::= SEQUENCE {
-		ClientID 	INTEGER,
-		User		UTF8String,
-		Machine 	UTF8String,
-		Process 	UTF8String}
+    extensionRequest ::= SEQUENCE OF Extension
+    Extension ::= SEQUENCE {
+      extnID    OBJECT IDENTIFIER,
+      critical  BOOLEAN OPTIONAL,
+      extnValue OCTET STRING}
 
-	extensionRequest ::= SEQUENCE OF Extension
-	Extension ::= SEQUENCE {
-	  extnID    OBJECT IDENTIFIER,
-	  critical  BOOLEAN OPTIONAL,
-	  extnValue OCTET STRING}
-
-	SubjectKeyIdentifier ::= OCTET STRING
-	
-	certificateTemplate ::= SEQUENCE {
-	   templateID              OBJECT IDENTIFIER,
-	   templateMajorVersion    INTEGER,
-	   templateMinorVersion    INTEGER OPTIONAL}
+    SubjectKeyIdentifier ::= OCTET STRING
+    
+    certificateTemplate ::= SEQUENCE {
+       templateID              OBJECT IDENTIFIER,
+       templateMajorVersion    INTEGER,
+       templateMinorVersion    INTEGER OPTIONAL}
 
     EnhancedKeyUsage ::= SEQUENCE OF OBJECT IDENTIFIER
     KeyUsage ::= BIT STRING
 
     ApplicationCertPolicies ::= SEQUENCE OF PolicyInformation
 
-	PolicyInformation ::= SEQUENCE {
-     	policyIdentifier   OBJECT IDENTIFIER,
-     	policyQualifiers   SEQUENCE OF PolicyQualifierInfo OPTIONAL}
+    PolicyInformation ::= SEQUENCE {
+        policyIdentifier   OBJECT IDENTIFIER,
+        policyQualifiers   SEQUENCE OF PolicyQualifierInfo OPTIONAL}
 
-	PolicyQualifierInfo ::= SEQUENCE {
-       policyQualifierId	OBJECT IDENTIFIER,
-       qualifier        	ANY}
+    PolicyQualifierInfo ::= SEQUENCE {
+       policyQualifierId    OBJECT IDENTIFIER,
+       qualifier            ANY}
 
-  	unstructuredName ::= CHOICE {
-  		Ia5String 		IA5String,
-  		directoryString DirectoryString}
+    unstructuredName ::= CHOICE {
+        Ia5String       IA5String,
+        directoryString DirectoryString}
 
-  	challengePassword ::= DirectoryString
+    challengePassword ::= DirectoryString
 
     subjectAltName ::= SEQUENCE OF GeneralName
 
@@ -284,7 +322,9 @@ sub _init {
          nameAssigner            [0]     DirectoryString OPTIONAL,
          partyName               [1]     DirectoryString }
 
-    certificateTemplateName ::= BMPString
+    certificateTemplateName ::= CHOICE {
+        octets          OCTET STRING,
+        directoryString DirectoryString}
 ASN1
 
     my $self = $asn->find($node);
@@ -349,7 +389,7 @@ sub signatureAlgorithm {
 
 sub signature {
     my $self = shift;
-    return unpack('H*', $self->{'signature'});
+    unpack('H*', $self->{'signature'}->[0]);
 }
 
 sub attributes {
@@ -361,16 +401,16 @@ sub attributes {
 }
 
 sub certificateTemplate {
-	my $self = shift;
-	my %attributes = attributes($self);
-	my $template;
-	my @space = @{$attributes{'extensionRequest'}};
-	foreach (@space) {
-		if ($_->{'extnID'} eq 'certificateTemplate') {
-			$template = $_->{'extnValue'};
-		}
-	}
-	return $template; 
+    my $self = shift;
+    my %attributes = attributes($self);
+    my $template;
+    my @space = @{$attributes{'extensionRequest'}};
+    foreach (@space) {
+        if ($_->{'extnID'} eq 'certificateTemplate') {
+            $template = $_->{'extnValue'};
+        }
+    }
+    return $template; 
 }
 1;
 
