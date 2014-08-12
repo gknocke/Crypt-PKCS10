@@ -1,25 +1,46 @@
-# Before `make install' is performed this script should be runnable with
-# `make test'. After `make install' it should work as `perl Crypt-X509-CRL.t'
+# Base tests for Crypt::PKCS10
+
+use strict;
+use warnings;
+
 use Test::More tests => 8;
-BEGIN { use_ok('Crypt::PKCS10') }
-$csr = loadcsr('t/csr.pem');
-is( length $csr, 1078, 'csr file loaded' );
-$decoded = Crypt::PKCS10->new( $csr );
+
+BEGIN {
+    use_ok('Crypt::PKCS10');
+}
+
+require_ok('Crypt::PKCS10');
+
+my $csr = '-----BEGIN CERTIFICATE REQUEST-----
+MIIC4zCCAcsCAQAwcjELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUx
+ITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDENMAsGA1UEAwwEdGVz
+dDEcMBoGCSqGSIb3DQEJARYNdGVzdEB0ZXN0LmNvbTCCASIwDQYJKoZIhvcNAQEB
+BQADggEPADCCAQoCggEBAL7t6CR90kOZ0m3qJx9koHBFdXnunEq9ELSUvsZ7oFiw
+6zJsyi18S9znVRLEgsW4v2rTsLiJmKnMF2Kyd9AQ2X2zKUK49CTMqG1p/4lF0oLa
+nQgNmjYC4VL61wTte6CUAJX7wZA8LL00QfCdgILKodP12E3c7Yp3yw5TAOBdA3Av
+KnpsUiNLmQN3HSn9dwk9rCHulrP8LL97l//H2KSCvOvSfk1XeN7ADSyWMC6ZPBD/
+7WVnQo7GgMAA0Qhz+nIIFA5AyuFEbRiff+L5EEl+Bg6R9tgx+QUt9JXxF260dkAb
+iKBmPcJldl2/GEmz6RAXhMwJnN35tbdzw0LVLzsypr0CAwEAAaAsMBMGCSqGSIb3
+DQEJAjEGDAR0ZXN0MBUGCSqGSIb3DQEJBzEIDAYxMjM0NTYwDQYJKoZIhvcNAQEF
+BQADggEBACqZ5+3GP7QbTJAqnUloMRBJGYZl0/EyW6dAMoq7E+RiR2OlJGXgP+ga
+DPv7Wa4jZiYmf2CZCWKP+WvTvcg4AQq5h7hhAN+u+s8kk0lIjYjnkKRAedGYKDUO
+fPD9WowISru3RB1xyxlvgeZS6WoA6TD8REVa1UyFoNzUewvsrNVkKSHh1xk/+ePx
+2Ovvrcg9pAWY4K8FvMRdFQKnEud9CAoMxqz3kszhxDW6rcr2mgFPSrKi5WNj+Scg
+Tqod8xbB753JWjEbG6Hui9LIMihTX3ZJ0c2GB0buhEgz49y83X/byFHSGGSQpzxX
+qXDFVov9UZ+sGy8CJ5ahII79yrfKpxY=
+-----END CERTIFICATE REQUEST-----';
+
+my $decoded = Crypt::PKCS10->new( $csr );
+
 ok( defined $decoded, 'new() successful' );
+
 is( $decoded->version, "v1", 'correct version' );
+
 is( $decoded->commonName, "test", 'correct commonName' );
+
 is( $decoded->emailAddress, 'test@test.com', 'correct emailAddress' );
+
 is( $decoded->subjectPublicKey, '3082010a0282010100beede8247dd24399d26dea271f64a070457579ee9c4abd10b494bec67ba058b0eb326cca2d7c4bdce75512c482c5b8bf6ad3b0b88998a9cc1762b277d010d97db32942b8f424cca86d69ff8945d282da9d080d9a3602e152fad704ed7ba0940095fbc1903c2cbd3441f09d8082caa1d3f5d84ddced8a77cb0e5300e05d03702f2a7a6c52234b9903771d29fd77093dac21ee96b3fc2cbf7b97ffc7d8a482bcebd27e4d5778dec00d2c96302e993c10ffed6567428ec680c000d10873fa7208140e40cae1446d189f7fe2f910497e060e91f6d831f9052df495f1176eb476401b88a0663dc265765dbf1849b3e9101784cc099cddf9b5b773c342d52f3b32a6bd0203010001', 'correct subjectPublicKey' );
+
 is( $decoded->signature, '2a99e7edc63fb41b4c902a9d4968311049198665d3f1325ba740328abb13e4624763a52465e03fe81a0cfbfb59ae236626267f609909628ff96bd3bdc838010ab987b86100dfaefacf249349488d88e790a44079d19828350e7cf0fd5a8c084abbb7441d71cb196f81e652e96a00e930fc44455ad54c85a0dcd47b0becacd5642921e1d7193ff9e3f1d8ebefadc83da40598e0af05bcc45d1502a712e77d080a0cc6acf792cce1c435baadcaf69a014f4ab2a2e56363f927204eaa1df316c1ef9dc95a311b1ba1ee8bd2c83228535f7649d1cd860746ee844833e3dcbcdd7fdbc851d2186490a73c57a970c5568bfd519fac1b2f022796a1208efdcab7caa716', 'correct signature' ); #seems not to be deterministic o.O
 
-sub loadcsr {
-	my $file = shift;
-	open FILE, $file || die "cannot load test request" . $file . "\n";
-	binmode FILE;    # HELLO Windows, dont fuss with this
-	my $holdTerminator = $/;
-	undef $/;        # using slurp mode to read the PEM-encoded binary certificate
-	my $csr = <FILE>;
-	$/ = $holdTerminator;
-	close FILE;
-	return $csr
-}
