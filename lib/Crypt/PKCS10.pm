@@ -1,7 +1,29 @@
+#
+# Crypt::PKCS10
+#
+# PKCS #10 certificate request parser
+#
+# This software is copyright (c) 2014 by Gideon Knocke.
+#
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
+#
+# Terms of the Perl programming language system itself
+#
+# a) the GNU General Public License as published by the Free
+#   Software Foundation; either version 1, or (at your option) any
+#   later version, or
+# b) the "Artistic License"
+#
+# See LICENSE for details.
+#
+
 package Crypt::PKCS10;
 
 use strict;
 use warnings;
+use Carp;
+
 use Exporter;
 use Convert::ASN1 qw(:all);
 use MIME::Base64;
@@ -72,8 +94,9 @@ my %oid2extkeyusage = (
 
 sub new {
     my $class  = shift;
-    my $parser = _init();
     my $der = shift;
+
+    my $parser = _init();
 
     if($der =~ /^\W+\w+\s+\w+\s+\w+\W+\s(.*)\s+\W+.*$/s) { #if PEM, convert to DER
         $der = decode_base64($1);
@@ -86,83 +109,103 @@ sub new {
     my $i = unpack("n*", substr($der, 2, 2)) + 4;
     my $substr = substr $der, 0, $i;
     no bytes;
-    
-    my $self = $parser->decode($substr) or die "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
-    my $req->{'certificationRequestInfo'}{'subject'}
-        = convert_rdn( $self->{'certificationRequestInfo'}{'subject'} );
-    $req->{'certificationRequestInfo'}{'version'}
-        = $self->{'certificationRequestInfo'}{'version'};
-    $req->{'certificationRequestInfo'}{'attributes'} = convert_attributes(
-        $self->{'certificationRequestInfo'}{'attributes'} );
-    $req->{'certificationRequestInfo'}{'subjectPKInfo'} = convert_pkinfo(
-        $self->{'certificationRequestInfo'}{'subjectPKInfo'} );
-    $req->{'signature'} = $self->{'signature'};
-    $req->{'signatureAlgorithm'}
-        = convert_signatureAlgorithm( $self->{'signatureAlgorithm'} );
-    bless( $req, $class );
-    return $req;
+
+    my $self = {};
+    bless( $self, $class );
+
+    my $top =
+	$parser->decode($substr) or confess "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
+
+    $self->{'certificationRequestInfo'}->{'subject'}
+        = $self->_convert_rdn( $top->{'certificationRequestInfo'}->{'subject'} );
+
+    $self->{'certificationRequestInfo'}->{'version'}
+        = $top->{'certificationRequestInfo'}->{'version'};
+
+    $self->{'certificationRequestInfo'}->{'attributes'} = $self->_convert_attributes(
+        $top->{'certificationRequestInfo'}->{'attributes'} );
+
+    $self->{'certificationRequestInfo'}->{'subjectPKInfo'} = $self->_convert_pkinfo(
+        $top->{'certificationRequestInfo'}->{'subjectPKInfo'} );
+
+    $self->{'signature'} = $top->{'signature'};
+
+    $self->{'signatureAlgorithm'}
+        = $self->_convert_signatureAlgorithm( $top->{'signatureAlgorithm'} );
+
+    return $self;
 }
 
-sub convert_signatureAlgorithm {
+sub _convert_signatureAlgorithm {
+    my $self = shift;
+
     my $signatureAlgorithm = shift;
     $signatureAlgorithm->{'algorithm'}
         = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
   
-    if ($signatureAlgorithm->{'parameters'}{'undef'}) {
+    if ($signatureAlgorithm->{'parameters'}->{'undef'}) {
         delete ($signatureAlgorithm->{'parameters'});
     }
     return $signatureAlgorithm;
 }
 
-sub convert_pkinfo {
+sub _convert_pkinfo {
+    my $self = shift;
+
     my $pkinfo = shift;
-    $pkinfo->{'algorithm'}{'algorithm'}
-        = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
-    if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
-        delete ($pkinfo->{'algorithm'}{'parameters'});
+    $pkinfo->{'algorithm'}->{'algorithm'}
+        = $oids{ $pkinfo->{'algorithm'}->{'algorithm'}};
+    if ($pkinfo->{'algorithm'}->{'parameters'}->{'undef'}) {
+        delete ($pkinfo->{'algorithm'}->{'parameters'});
     }   
     return $pkinfo;
 }
 
-sub convert_attributes {
-    my $typeandvalues = shift;
-    foreach ( @{$typeandvalues} ) {
-         if (defined $oids{ $_->{'type'}}) {
-            $_->{'type'} = $oids{ $_->{'type'} };
-            my $parser = _init($_->{'type'}) or die "Parser error: ", $_->{'type'}, " needs entry in ASN.1 definition!";
+sub _convert_attributes {
+    my $self = shift;
 
-            if ($_->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
+    my $typeandvalues = shift;
+    foreach my $entry ( @{$typeandvalues} ) {
+         if (defined $oids{ $entry->{'type'}}) {
+            $entry->{'type'} = $oids{ $entry->{'type'} };
+            my $parser = _init($entry->{'type'}) or confess "Parser error: ", $entry->{'type'}, " needs entry in ASN.1 definition!";
+
+            if ($entry->{'type'} eq 'extensionRequest') { #extensionRequest need a new layer
                 #In case the DER representation of 'extensionRequest' is needed. works for each attribute.          
-                $_->{'values'} = convert_extensionRequest($_->{'values'}[0]);
+                $entry->{'values'} = $self->_convert_extensionRequest($entry->{'values'}[0]);
             }
             else {
                 #maybe there can be more than one value, haven't seen jet. 
-                if($_->{'values'}[1]) {die "Incomplete parsing of attribute type: ", $_->{'type'};}
-                $_->{'values'} = $parser->decode($_->{'values'}[0]) or die ".. looks like damaged input";
+                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $entry->{'type'};}
+                $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess ".. looks like damaged input";
             }
          }    
     }
     return $typeandvalues;
 }
 
-sub convert_extensionRequest {
+sub _convert_extensionRequest {
+    my $self = shift;
+
     my $extensionRequest = shift;
     my $parser = _init('extensionRequest');
-    my $decoded = $parser->decode($extensionRequest) or die $parser->error, ".. looks like damaged input";
-    foreach (@{$decoded}) {        
-        if (defined $oids{ $_->{'extnID'}}) {
-            $_->{'extnID'} = $oids{ $_->{'extnID'} };
-            my $parser = _init($_->{'extnID'}) or die "parser error: ", $_->{'extnID'}, " needs entry in ASN.1 definition!";
-            $_->{'extnValue'} = $parser->decode($_->{'extnValue'}) or die $parser->error, ".. looks like damaged input";
+    my $decoded = $parser->decode($extensionRequest) or confess $parser->error, ".. looks like damaged input";
+    foreach my $entry (@{$decoded}) {        
+        if (defined $oids{ $entry->{'extnID'}}) {
+            $entry->{'extnID'} = $oids{ $entry->{'extnID'} };
+            my $parser = _init($entry->{'extnID'}) or confess "parser error: ", $entry->{'extnID'}, " needs entry in ASN.1 definition!";
+            $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
             
             #extension specific mapping
-            $_->{'extnValue'} = mapExtensions($_->{'extnID'}, $_->{'extnValue'});
+            $entry->{'extnValue'} = $self->_mapExtensions($entry->{'extnID'}, $entry->{'extnValue'});
         }
     }
     return $decoded;
 }
 
-sub mapExtensions {
+sub _mapExtensions {
+    my $self = shift;
+
     my $id =shift;
     my $value = shift;
     if ($id eq 'KeyUsage') {
@@ -174,7 +217,7 @@ sub mapExtensions {
         $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; # ugly hack to transfer bitmap to barewords
     }
     if ($id eq 'EnhancedKeyUsage') {
-        foreach(@{$value}) {
+        foreach (@{$value}) {
             $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
         }       
     }
@@ -190,12 +233,14 @@ sub mapExtensions {
 }
 
 
-sub convert_rdn {
+sub _convert_rdn {
+    my $self = shift;
+
     my $typeandvalue = shift;
     my %hash;
-    foreach ( @{$typeandvalue}) {
-        if (defined $oids{ $_->[0]->{'type'}}) {
-            $hash{ $oids{ $_->[0]->{'type'} } } = $_->[0]->{'value'};
+    foreach my $entry ( @{$typeandvalue}) {
+        if (defined $oids{ $entry->[0]->{'type'}}) {
+            $hash{ $oids{ $entry->[0]->{'type'} } } = $entry->[0]->{'value'};
         }
     }
     return \%hash;
@@ -327,43 +372,44 @@ sub _init {
         directoryString DirectoryString}
 ASN1
 
-    my $self = $asn->find($node);
-    return $self;
+    my $parsed = $asn->find($node);
+    return $parsed;
 }
 
 sub commonName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subject'}{'commonName'}
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}
         {'utf8String'} || '';
 }
 
 sub organizationalUnitName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subject'}
-        {'organizationalUnitName'}{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->{'utf8String'} || '';
 }
+
+
+###########################################################################
+# interface methods
 
 sub emailAddress {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subject'}{'emailAddress'}
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}
         {'ia5String'} || '';
 }
 
 sub stateOrProvinceName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subject'}
-        {'stateOrProvinceName'}{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->{'utf8String'} || '';
 }
 
 sub countryName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subject'}{'countryName'}
-        {'printableString'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->{'printableString'} || '';
 }
 
 sub version {
     my $self = shift;
-    my $v    = $self->{'certificationRequestInfo'}{'version'};
+    my $v    = $self->{'certificationRequestInfo'}->{'version'};
     return "v1" if $v == 0;
     return "v2" if $v == 1;
     return "v3" if $v == 2;
@@ -371,20 +417,17 @@ sub version {
 
 sub pkAlgorithm {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'algorithm'}
-        {'algorithm'};
+    return $self->{'certificationRequestInfo'}->{'subjectPKInfo'}->{'algorithm'}->{'algorithm'};
 }
 
 sub subjectPublicKey {
     my $self = shift;
-    return unpack('H*', $self->{'certificationRequestInfo'}{'subjectPKInfo'}
-        {'subjectPublicKey'}[0]);
+    return unpack('H*', $self->{'certificationRequestInfo'}->{'subjectPKInfo'}->{'subjectPublicKey'}->[0]);
 }
 
 sub signatureAlgorithm {
     my $self = shift;
-    return $self->{'signatureAlgorithm'}{'algorithm'};
-
+    return $self->{'signatureAlgorithm'}->{'algorithm'};
 }
 
 sub signature {
@@ -394,7 +437,7 @@ sub signature {
 
 sub attributes {
     my $self       = shift;
-    my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+    my $attributes = $self->{'certificationRequestInfo'}->{'attributes'};
     my %hash = map { $_->{'type'} => $_->{'values'} }
         @{$attributes};
     return %hash;
@@ -405,13 +448,82 @@ sub certificateTemplate {
     my %attributes = attributes($self);
     my $template;
     my @space = @{$attributes{'extensionRequest'}};
-    foreach (@space) {
-        if ($_->{'extnID'} eq 'certificateTemplate') {
-            $template = $_->{'extnValue'};
+    foreach my $entry (@space) {
+        if ($entry->{'extnID'} eq 'certificateTemplate') {
+            $template = $entry->{'extnValue'};
         }
     }
     return $template; 
 }
+
 1;
 
 __END__
+
+=head1 NAME
+
+Crypt::PKCS10 - Parse PKCS #10 certificate requests
+
+=head1 SYNOPSIS
+
+    use Crypt::PKCS10;
+
+    my $decoded = Crypt::PKCS10->new( $csr );
+    my $cn = $decoded->commonName();
+
+=head1 REQUIRES
+
+Convert::ASN1
+
+=head1 DESCRIPTION
+
+
+=head1 CONSTRUCTOR
+
+=head2 new
+
+
+=head1 METHODS
+
+=head2 commonName
+
+=head2 organizationalUnitName
+
+=head2 emailAddress
+
+=head2 stateOrProvinceName
+
+=head2 countryName
+
+=head2 version
+
+=head2 pkAlgorithm
+
+=head2 subjectPublicKey
+
+=head2 signatureAlgorithm
+
+=head2 signature
+
+=head2 attributes
+
+=head2 certificateTemplate
+
+=head1 AUTHORS
+
+Gideon Knocke
+
+=head1 COPYRIGHT
+
+This software is copyright (c) 2014 by Gideon Knocke.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
+
+Terms of the Perl programming language system itself
+
+a) the GNU General Public License as published by the Free
+   Software Foundation; either version 1, or (at your option) any
+   later version, or
+
+b) the "Artistic License"
