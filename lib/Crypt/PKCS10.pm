@@ -462,7 +462,7 @@ __END__
 
 =head1 NAME
 
-Crypt::PKCS10 - Parse PKCS #10 certificate requests
+Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 =head1 SYNOPSIS
 
@@ -477,37 +477,71 @@ Convert::ASN1
 
 =head1 DESCRIPTION
 
-
-=head1 CONSTRUCTOR
-
-=head2 new
-
+Crypt::PKCS10 parses PKCS #10 requests and provides accessor methods to extract the requested data.
+First, the request will be parsed using the included ASN.1 definition. Common object identifiers will be translated to their corresponding names.
+Additionally, accessor methods allow to extract single data fields. Bit Strings like signatures will be printed in their hexadecimal representation.
 
 =head1 METHODS
 
+=head2 new
+
+Constructor, creates a new object containing the parsed PKCS #10 request. It takes the request itself as an argument. PEM and DER encoding is supported.
+
+    use Crypt::PKCS10;
+    my $decoded = Crypt::PKCS10->new( $csr );
+
 =head2 commonName
+
+Returns the common name as stored in the request.
+
+    my $cn = $decoded->commonName();
 
 =head2 organizationalUnitName
 
+Returns the organizational unit name.
+
 =head2 emailAddress
+
+Returns the email address.
 
 =head2 stateOrProvinceName
 
+Returns the state or province name.
+
 =head2 countryName
+
+Returns the country name.
 
 =head2 version
 
+The version is stored as an Integer where 0 means 'v1'. Note, there is an offset by one!
+
 =head2 pkAlgorithm
+
+Returns the public key algorithm according to its object identifier.
 
 =head2 subjectPublicKey
 
+The public key will be returned in its hexadecimal representation
+
 =head2 signatureAlgorithm
+
+Returns the signature algorithm according to its object identifier.
 
 =head2 signature
 
+The signature will be returned in its hexadecimal representation
+
 =head2 attributes
 
+A request may contain a set of attributes. This method returns a reference to a hash consisting of all attributes.
+
+    %attributes = $decoded->attributes;
+    print Dumper(\%attributes);
+    
 =head2 certificateTemplate
+
+CertificateTemplate is an attribute widely used by Windows certification authorities.
 
 =head1 AUTHORS
 
