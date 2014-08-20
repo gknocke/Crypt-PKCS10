@@ -13,4 +13,4 @@ meta-spec:
 name: Crypt-PKCS10
 requires:
   Convert::ASN1: '0.27'
-version: '0.1'
+version: '1.0'

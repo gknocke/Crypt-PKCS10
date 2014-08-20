@@ -5,4 +5,4 @@ META.yml
 Makefile.PL
 README
 lib/Crypt/PKCS10.pm
-t/Crypt-PKCS10.t
+t/00_base.t
