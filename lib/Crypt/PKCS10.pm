@@ -25,12 +25,12 @@ use warnings;
 use Carp;
 
 use Exporter;
-use Convert::ASN1 qw(:all);
+use Convert::ASN1;
 use MIME::Base64;
 
 our @EXPORT  = qw();
 our @ISA     = qw(Exporter);
-our $VERSION = 1.0;
+our $VERSION = 1.1;
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',
@@ -233,7 +233,7 @@ sub _convert_rdn {
     my %hash;
     foreach my $entry ( @{$typeandvalue} ) {
         if (defined $oids{ $entry->[0]->{'type'}}) {
-            $hash{ $oids{ $entry->[0]->{'type'} } } = $entry->[0]->{'value'};
+            $hash{ $oids{ $entry->[0]->{'type'} } } = (values $entry->[0]->{'value'})[0];
         }
     }
     return \%hash;
@@ -374,29 +374,32 @@ ASN1
 
 sub commonName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}
-        {'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'} || '';
 }
 
 sub organizationalUnitName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'} || '';
+}
+
+sub organizationName {
+    my $self = shift;
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationName'} || '';
 }
 
 sub emailAddress {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}
-        {'ia5String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'} || '';
 }
 
 sub stateOrProvinceName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'} || '';
 }
 
 sub countryName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->{'printableString'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'} || '';
 }
 
 sub version {
@@ -491,6 +494,10 @@ Returns the common name as stored in the request.
 =head2 organizationalUnitName
 
 Returns the organizational unit name.
+
+=head2 organizationName
+
+Returns the organization name.
 
 =head2 emailAddress
 
