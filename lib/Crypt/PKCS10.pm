@@ -25,12 +25,12 @@ use warnings;
 use Carp;
 
 use Exporter;
-use Convert::ASN1 qw(:all);
+use Convert::ASN1;
 use MIME::Base64;
 
 our @EXPORT  = qw();
 our @ISA     = qw(Exporter);
-our $VERSION = 1.0;
+our $VERSION = 1.1;
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',
@@ -234,10 +234,10 @@ sub _convert_rdn {
     foreach my $entry ( @{$typeandvalue} ) {
         if (defined $oids{ $entry->[0]->{'type'}}) {
             if (defined $hash{ $oids{ $entry->[0]->{'type'} } }) {
-                push $hash{ $oids{ $entry->[0]->{'type'} } }, $entry->[0]->{'value'};
+                push $hash{ $oids{ $entry->[0]->{'type'} } }, (values $entry->[0]->{'value'})[0];
             }
             else {
-                $hash{ $oids{ $entry->[0]->{'type'} } } = [$entry->[0]->{'value'}];
+                $hash{ $oids{ $entry->[0]->{'type'} } } = [(values $entry->[0]->{'value'})[0]];
             }
         }
     }
@@ -380,29 +380,32 @@ ASN1
 
 sub commonName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}->[0]->
-        {'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}->[0] || '';
 }
 
 sub organizationalUnitName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->[0]->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->[0] || '';
+}
+
+sub organizationName {
+    my $self = shift;
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationName'}->[0] || '';
 }
 
 sub emailAddress {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}->[0]->
-        {'ia5String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}->[0] || '';
 }
 
 sub stateOrProvinceName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->[0]->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->[0] || '';
 }
 
 sub countryName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->[0]->{'printableString'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->[0] || '';
 }
 
 #this is an alternative function which allows to deal with multivalued subjects by returning an array instead of a single value
@@ -410,7 +413,7 @@ sub domainComponent {
     my $self = shift;
     my @return;
     foreach (@{$self->{'certificationRequestInfo'}->{'subject'}->{'domainComponent'}}) {
-        push @return, $_->{'ia5String'};
+        push @return, $_;
     }
     return @return;
 }
@@ -507,6 +510,10 @@ Returns the common name as stored in the request.
 =head2 organizationalUnitName
 
 Returns the organizational unit name.
+
+=head2 organizationName
+
+Returns the organization name.
 
 =head2 emailAddress
 
