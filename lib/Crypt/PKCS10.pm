@@ -228,14 +228,20 @@ sub _mapExtensions {
 
 sub _convert_rdn {
     my $self = shift;
-
     my $typeandvalue = shift;
     my %hash;
+    my @array;
     foreach my $entry ( @{$typeandvalue} ) {
         if (defined $oids{ $entry->[0]->{'type'}}) {
-            $hash{ $oids{ $entry->[0]->{'type'} } } = $entry->[0]->{'value'};
+            if (defined $hash{ $oids{ $entry->[0]->{'type'} } }) {
+                push $hash{ $oids{ $entry->[0]->{'type'} } }, $entry->[0]->{'value'};
+            }
+            else {
+                $hash{ $oids{ $entry->[0]->{'type'} } } = [$entry->[0]->{'value'}];
+            }
         }
     }
+
     return \%hash;
 }
 
@@ -374,29 +380,39 @@ ASN1
 
 sub commonName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}->[0]->
         {'utf8String'} || '';
 }
 
 sub organizationalUnitName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->[0]->{'utf8String'} || '';
 }
 
 sub emailAddress {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}->[0]->
         {'ia5String'} || '';
 }
 
 sub stateOrProvinceName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->{'utf8String'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->[0]->{'utf8String'} || '';
 }
 
 sub countryName {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->{'printableString'} || '';
+    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->[0]->{'printableString'} || '';
+}
+
+#this is an alternative function which allows to deal with multivalued subjects by returning an array instead of a single value
+sub domainComponent {
+    my $self = shift;
+    my @return;
+    foreach (@{$self->{'certificationRequestInfo'}->{'subject'}->{'domainComponent'}}) {
+        push @return, $_->{'ia5String'};
+    }
+    return @return;
 }
 
 sub version {
