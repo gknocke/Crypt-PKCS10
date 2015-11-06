@@ -472,6 +472,25 @@ sub certificateTemplate {
     return $template; 
 }
 
+sub extensionValue {
+    my $self = shift;
+    my $extensionName = shift;
+    my %attributes = attributes($self);
+    my $value;
+    my @space = @{$attributes{'extensionRequest'}};
+    foreach my $entry (@space) {
+        if ($entry->{'extnID'} eq $extensionName) {
+            $value = $entry->{'extnValue'};
+            # reduce the hash items to the scalar value            
+            while (ref $value eq 'HASH') {
+                my @keys = keys %{$value};
+                $value = $value->{ shift @keys } ;
+            }            
+        }
+    }
+    return $value; 
+}
+
 1;
 
 __END__
