@@ -185,15 +185,20 @@ sub _convert_extensionRequest {
 
     my $extensionRequest = shift;
     my $parser = _init('extensionRequest');
-    my $decoded = $parser->decode($extensionRequest) or confess $parser->error, ".. looks like damaged input";
+    my $decoded = $parser->decode($extensionRequest) or return [];
     foreach my $entry (@{$decoded}) {        
         if (defined $oids{ $entry->{'extnID'}}) {
+            my $parser = _init($oids{ $entry->{'extnID'}});
+            if(!$parser) {
+                $entry = undef;
+                next;
+            }
             $entry->{'extnID'} = $oids{ $entry->{'extnID'} };
-            my $parser = _init($entry->{'extnID'}) or confess "parser error: ", $entry->{'extnID'}, " needs entry in ASN.1 definition!";
             $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
             $entry->{'extnValue'} = $self->_mapExtensions($entry->{'extnID'}, $entry->{'extnValue'});
         }
     }
+    @{$decoded} = grep { defined } @{$decoded};
     return $decoded;
 }
 
