@@ -4,7 +4,7 @@
       "Gideon Knocke <gknocke@cpan.org>"
    ],
    "dynamic_config" : 0,
-   "generated_by" : "Dist::Zilla version 5.019, CPAN::Meta::Converter version 2.141520, CPAN::Meta::Converter version 2.132830",
+   "generated_by" : "Dist::Zilla version 5.019, CPAN::Meta::Converter version 2.141520, CPAN::Meta::Converter version 2.142690",
    "license" : [
       "perl_5"
    ],

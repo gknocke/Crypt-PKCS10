@@ -30,7 +30,7 @@ use MIME::Base64;
 
 our @EXPORT  = qw();
 our @ISA     = qw(Exporter);
-our $VERSION = 1.1;
+our $VERSION = 1.2;
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',

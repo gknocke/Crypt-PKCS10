@@ -22,7 +22,7 @@ my %WriteMakefileArgs = (
   "PREREQ_PM" => {
     "Convert::ASN1" => "0.27"
   },
-  "VERSION" => "1.0",
+  "VERSION" => "1.2",
   "test" => {
     "TESTS" => ""
   }
