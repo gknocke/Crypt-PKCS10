@@ -30,7 +30,7 @@ use MIME::Base64;
 
 our @EXPORT  = qw();
 our @ISA     = qw(Exporter);
-our $VERSION = 1.2;
+our $VERSION = 1.3;
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',
@@ -239,10 +239,12 @@ sub _convert_rdn {
     foreach my $entry ( @{$typeandvalue} ) {
         if (defined $oids{ $entry->[0]->{'type'}}) {
             if (defined $hash{ $oids{ $entry->[0]->{'type'} } }) {
-                push $hash{ $oids{ $entry->[0]->{'type'} } }, (values $entry->[0]->{'value'})[0];
+            	my $hash_ref = (values %{$entry->[0]->{'value'}})[0];
+            	my $array_ref = $hash{ $oids{ $entry->[0]->{'type'} } };
+                push @{$array_ref}, $hash_ref;
             }
             else {
-                $hash{ $oids{ $entry->[0]->{'type'} } } = [(values $entry->[0]->{'value'})[0]];
+                $hash{ $oids{ $entry->[0]->{'type'} } } = [(values %{$entry->[0]->{'value'}})[0]];
             }
         }
     }
