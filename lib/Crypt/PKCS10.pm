@@ -138,6 +138,9 @@ sub new {
     $self->{'certificationRequestInfo'}{'attributes'} = $self->_convert_attributes(
         $top->{'certificationRequestInfo'}{'attributes'} );
 
+    $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
+      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{'certificationRequestInfo'}{'subjectPKInfo'} ) ) .
+	"-----END PUBLIC KEY-----\n";
     $self->{'certificationRequestInfo'}{'subjectPKInfo'} = $self->_convert_pkinfo(
         $top->{'certificationRequestInfo'}{'subjectPKInfo'} );
 
@@ -166,6 +169,7 @@ sub _convert_pkinfo {
     my $self = shift;
 
     my $pkinfo = shift;
+
     $pkinfo->{'algorithm'}{'algorithm'}
         = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
     if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
@@ -472,6 +476,9 @@ sub pkAlgorithm {
 
 sub subjectPublicKey {
     my $self = shift;
+    my $format = shift;
+
+    return $self->{_pubkey} if( $format );
     return unpack('H*', $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'subjectPublicKey'}->[0]);
 }
 
@@ -644,9 +651,11 @@ Returns the structure version as a string, e.g. "v1" "v2", or "v3"
 
 Returns the public key algorithm according to its object identifier.
 
-=head2 subjectPublicKey
+=head2 subjectPublicKey( $format )
 
-The public key will be returned in its hexadecimal representation
+If $format is true, the public key will be returned in PEM format.
+
+Otherwise, the public key will be returned in its hexadecimal representation
 
 =head2 signatureAlgorithm
 
