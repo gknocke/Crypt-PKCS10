@@ -123,7 +123,7 @@ sub new {
     my $substr = substr( $der, 0, unpack("n*", substr($der, 2, 2)) + 4 );
     no bytes;
 
-    my $self = { _der => $der };
+    my $self = { _der => $substr };
     bless( $self, $class );
 
     my $top =
