@@ -123,7 +123,7 @@ sub new {
     my $substr = substr( $der, 0, unpack("n*", substr($der, 2, 2)) + 4 );
     no bytes;
 
-    my $self = {};
+    my $self = { _der => $der };
     bless( $self, $class );
 
     my $top =
@@ -402,6 +402,16 @@ ASN1
 ###########################################################################
 # interface methods
 
+sub csrRequest {
+    my $self = shift;
+    my $format = shift;
+
+    return "-----BEGIN CERTIFICATE REQUEST-----\n" .
+      encode_base64( $self->{_der} ) . "-----END CERTIFICATE REQUEST-----\n" if( $format );
+
+    return $self->{_der};
+}
+
 # Common subject components documented to be always present:
 
 foreach my $component (qw/commonName organizationalUnitName organizationName emailAddress stateOrProvinceName countryName/ ) {
@@ -578,6 +588,12 @@ Constructor, creates a new object containing the parsed PKCS #10 request. It tak
 
     use Crypt::PKCS10;
     my $decoded = Crypt::PKCS10->new( $csr );
+
+=head2 csrRequest( $format )
+
+Returns the binary (ASN.1) request (after conversion from PEM and removal of any data beyond the length of the ASN.1 structure.
+
+If $format is true, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
 =head2 commonName
 
