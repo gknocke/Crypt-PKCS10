@@ -24,13 +24,13 @@ use strict;
 use warnings;
 use Carp;
 
-use Exporter;
 use Convert::ASN1;
 use MIME::Base64;
 
-our @EXPORT  = qw();
-our @ISA     = qw(Exporter);
 our $VERSION = 1.3;
+
+# N.B. Names are exposed in the API.
+#      %shortnames follows & depends on (some) values.
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',
@@ -60,11 +60,11 @@ my %oids = (
     '1.2.840.10040.4.1'             => 'DSA',
     '1.2.840.10040.4.3'             => 'DSA with SHA1',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
-    '2.5.4.7'                       => 'localityName', 
+    '2.5.4.7'                       => 'localityName',
     '1.2.840.113549.1.1.11'         => 'SHA-256 with RSA encryption',
     '1.2.840.113549.1.1.13'         => 'SHA-512 with RSA encryption',
     '1.2.840.113549.1.1.2'          => 'MD2 with RSA encryption',
-    '1.2.840.113549.1.9.15'         => 'SMIMECapabilities', 
+    '1.2.840.113549.1.9.15'         => 'SMIMECapabilities',
     '1.3.14.3.2.29'                 => 'SHA1 with RSA signature',
     '1.3.6.1.4.1.311.13.1'          => 'RENEWAL_CERTIFICATE',
     '1.3.6.1.4.1.311.13.2.1'        => 'ENROLLMENT_NAME_VALUE_PAIR',
@@ -73,14 +73,17 @@ my %oids = (
     '1.3.6.1.5.2.3.5'               => 'KDC Authentication',
     '1.3.6.1.5.5.7.9.5'             => 'countryOfResidence',
     '2.16.840.1.101.3.4.2.1'        => 'SHA-256',
-    '2.5.4.12'                      => 'Title', 
-    '2.5.4.13'                      => 'Description', 
-    '2.5.4.17'                      => 'postalCode', 
-    '2.5.4.4'                       => 'Surname', 
-    '2.5.4.41'                      => 'Name', 
-    '2.5.4.42'                      => 'givenName', 
-    '2.5.4.46'                      => 'dnQualifier', 
-    '2.5.4.12'                      => 'serialNumber',     
+    '2.5.4.12'                      => 'Title',
+    '2.5.4.13'                      => 'Description',
+    '2.5.4.17'                      => 'postalCode',
+    '2.5.4.4'                       => 'Surname',
+    '2.5.4.41'                      => 'Name',
+    '2.5.4.42'                      => 'givenName',
+    '2.5.4.43'                      => 'initials',
+    '2.5.4.44'                      => 'generationQualifier',
+    '2.5.4.45'                      => 'uniqueIdentifier',
+    '2.5.4.46'                      => 'dnQualifier',
+    '2.5.4.5'                       => 'serialNumber',
 );
 
 my %oid2extkeyusage = (
@@ -92,39 +95,54 @@ my %oid2extkeyusage = (
                 '1.3.6.1.5.5.7.3.9' => 'OCSPSigning',
 );
 
+my %shortnames = (
+		  countryName            => 'C',
+		  stateOrProvinceName    => 'ST',
+		  organizationName       => 'O',
+		  organizationalUnitName => 'OU',
+		  commonName             => 'CN',
+#		  emailAddress           => 'E', # Deprecated & not recognized by some software
+		  domainComponent        => 'DC',
+		  localityName           => 'L',
+		  uniqueIdentifier       => 'UID',
+);
+
+
 sub new {
     my $class  = shift;
     my $der = shift;
 
     my $parser = _init();
 
-    if($der =~ /^-----BEGIN\s(NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(NEW\s)?CERTIFICATE\sREQUEST-----$/s) { #if PEM, convert to DER
-        $der = decode_base64($2);
+    if($der =~ /^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms) { #if PEM, convert to DER
+        $der = decode_base64($1);
     }
 
     use bytes;
     #some Requests may contain information outside of the regular ASN.1 structure. These parts need to be stripped of
-    my $i = unpack("n*", substr($der, 2, 2)) + 4;
-    my $substr = substr $der, 0, $i;
+    my $substr = substr( $der, 0, unpack("n*", substr($der, 2, 2)) + 4 );
     no bytes;
 
-    my $self = {};
+    my $self = { _der => $substr };
     bless( $self, $class );
 
     my $top =
 	$parser->decode($substr) or confess "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
 
-    $self->{'certificationRequestInfo'}->{'subject'}
-        = $self->_convert_rdn( $top->{'certificationRequestInfo'}->{'subject'} );
+    $self->{'certificationRequestInfo'}{'subject'}
+        = $self->_convert_rdn( $top->{'certificationRequestInfo'}{'subject'} );
 
-    $self->{'certificationRequestInfo'}->{'version'}
-        = $top->{'certificationRequestInfo'}->{'version'};
+    $self->{'certificationRequestInfo'}{'version'}
+        = $top->{'certificationRequestInfo'}{'version'};
 
-    $self->{'certificationRequestInfo'}->{'attributes'} = $self->_convert_attributes(
-        $top->{'certificationRequestInfo'}->{'attributes'} );
+    $self->{'certificationRequestInfo'}{'attributes'} = $self->_convert_attributes(
+        $top->{'certificationRequestInfo'}{'attributes'} );
 
-    $self->{'certificationRequestInfo'}->{'subjectPKInfo'} = $self->_convert_pkinfo(
-        $top->{'certificationRequestInfo'}->{'subjectPKInfo'} );
+    $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
+      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{'certificationRequestInfo'}{'subjectPKInfo'} ) ) .
+	"-----END PUBLIC KEY-----\n";
+    $self->{'certificationRequestInfo'}{'subjectPKInfo'} = $self->_convert_pkinfo(
+        $top->{'certificationRequestInfo'}{'subjectPKInfo'} );
 
     $self->{'signature'} = $top->{'signature'};
 
@@ -140,8 +158,8 @@ sub _convert_signatureAlgorithm {
     my $signatureAlgorithm = shift;
     $signatureAlgorithm->{'algorithm'}
         = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
-  
-    if ($signatureAlgorithm->{'parameters'}->{'undef'}) {
+
+    if ($signatureAlgorithm->{'parameters'}{'undef'}) {
         delete ($signatureAlgorithm->{'parameters'});
     }
     return $signatureAlgorithm;
@@ -151,11 +169,12 @@ sub _convert_pkinfo {
     my $self = shift;
 
     my $pkinfo = shift;
-    $pkinfo->{'algorithm'}->{'algorithm'}
-        = $oids{ $pkinfo->{'algorithm'}->{'algorithm'}};
-    if ($pkinfo->{'algorithm'}->{'parameters'}->{'undef'}) {
-        delete ($pkinfo->{'algorithm'}->{'parameters'});
-    }   
+
+    $pkinfo->{'algorithm'}{'algorithm'}
+        = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
+    if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
+        delete ($pkinfo->{'algorithm'}{'parameters'});
+    }
     return $pkinfo;
 }
 
@@ -175,7 +194,7 @@ sub _convert_attributes {
                 if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $entry->{'type'};}
                 $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess "Looks like damaged input";
             }
-         }    
+         }
     }
     return $typeandvalues;
 }
@@ -186,16 +205,17 @@ sub _convert_extensionRequest {
     my $extensionRequest = shift;
     my $parser = _init('extensionRequest');
     my $decoded = $parser->decode($extensionRequest) or return [];
-    foreach my $entry (@{$decoded}) {        
-        if (defined $oids{ $entry->{'extnID'}}) {
-            my $parser = _init($oids{ $entry->{'extnID'}});
+    foreach my $entry (@{$decoded}) {
+	my $name = $oids{ $entry->{'extnID'} };
+        if (defined $name) {
+            my $parser = _init($name);
             if(!$parser) {
                 $entry = undef;
                 next;
             }
-            $entry->{'extnID'} = $oids{ $entry->{'extnID'} };
+            $entry->{'extnID'} = $name;
             $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
-            $entry->{'extnValue'} = $self->_mapExtensions($entry->{'extnID'}, $entry->{'extnValue'});
+            $entry->{'extnValue'} = $self->_mapExtensions($name, $entry->{'extnValue'});
         }
     }
     @{$decoded} = grep { defined } @{$decoded};
@@ -213,19 +233,16 @@ sub _mapExtensions {
         my @usages = reverse(qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly));
         my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
         $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
-    }
-    if ($id eq 'EnhancedKeyUsage') {
+    } elsif ($id eq 'EnhancedKeyUsage') {
         foreach (@{$value}) {
             $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
-        }       
-    }
-    if ($id eq 'SubjectKeyIdentifier') {
+        }
+    } elsif ($id eq 'SubjectKeyIdentifier') {
         $value = (unpack "H*", $value);
-    }
-    if ($id eq 'ApplicationCertPolicies') {
+    } elsif ($id eq 'ApplicationCertPolicies') {
         foreach my $entry (@{$value}) {
             $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
-        }       
+        }
     }
     return $value
 }
@@ -235,18 +252,22 @@ sub _convert_rdn {
     my $self = shift;
     my $typeandvalue = shift;
     my %hash;
-    my @array;
-    foreach my $entry ( @{$typeandvalue} ) {
-        if (defined $oids{ $entry->[0]->{'type'}}) {
-            if (defined $hash{ $oids{ $entry->[0]->{'type'} } }) {
-            	my $hash_ref = (values %{$entry->[0]->{'value'}})[0];
-            	my $array_ref = $hash{ $oids{ $entry->[0]->{'type'} } };
-                push @{$array_ref}, $hash_ref;
-            }
-            else {
-                $hash{ $oids{ $entry->[0]->{'type'} } } = [(values %{$entry->[0]->{'value'}})[0]];
-            }
-        }
+    foreach my $entry ( @$typeandvalue ) {
+	foreach my $item (@$entry) {
+	    my $name = $oids{ $item->{'type'} };
+	    if( defined $name ) {
+		push @{$hash{$name}}, values %{$item->{'value'}};
+		push @{$hash{_subject}}, $name, [ values %{$item->{'value'}} ];
+		unless( $self->can( $name ) ) {
+		    no strict 'refs';
+		    *$name =  sub {
+			my $self = shift;
+			return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
+			return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
+		    }
+		}
+	    }
+	}
     }
 
     return \%hash;
@@ -257,7 +278,7 @@ sub _init {
     if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
     $asn->prepare(<<ASN1);
-    
+ 
     DirectoryString ::= CHOICE {
       teletexString   TeletexString,
       printableString PrintableString,
@@ -292,7 +313,7 @@ sub _init {
       subjectPublicKey BIT STRING}
 
     --- Certificate Request ---
-    
+
     CertificationRequest ::= SEQUENCE {
       certificationRequestInfo  CertificationRequestInfo,
       signatureAlgorithm        AlgorithmIdentifier,
@@ -327,7 +348,7 @@ sub _init {
       extnValue OCTET STRING}
 
     SubjectKeyIdentifier ::= OCTET STRING
-    
+
     certificateTemplate ::= SEQUENCE {
        templateID              OBJECT IDENTIFIER,
        templateMajorVersion    INTEGER,
@@ -385,67 +406,85 @@ ASN1
 ###########################################################################
 # interface methods
 
-sub commonName {
+sub csrRequest {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'commonName'}->[0] || '';
+    my $format = shift;
+
+    return "-----BEGIN CERTIFICATE REQUEST-----\n" .
+      encode_base64( $self->{_der} ) . "-----END CERTIFICATE REQUEST-----\n" if( $format );
+
+    return $self->{_der};
 }
 
-sub organizationalUnitName {
-    my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationalUnitName'}->[0] || '';
+# Common subject components documented to be always present:
+
+foreach my $component (qw/commonName organizationalUnitName organizationName emailAddress stateOrProvinceName countryName/ ) {
+    no strict 'refs';
+
+    unless( defined &$component ) {
+	*$component = sub {
+	    my $self = shift;
+	    return @{ $self->{'certificationRequestInfo'}{'subject'}{$component} || [] } if( wantarray );
+	    return $self->{'certificationRequestInfo'}{'subject'}{$component}->[0] || '';
+	}
+    }
 }
 
-sub organizationName {
-    my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'organizationName'}->[0] || '';
-}
+# Complete subject
 
-sub emailAddress {
+sub subject {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'emailAddress'}->[0] || '';
-}
+    my $long = shift;
 
-sub stateOrProvinceName {
-    my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'stateOrProvinceName'}->[0] || '';
-}
+    return @{ $self->{certificationRequestInfo}{subject}{_subject} } if( wantarray );
 
-sub countryName {
-    my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subject'}->{'countryName'}->[0] || '';
+    my @subject = @{ $self->{certificationRequestInfo}{subject}{_subject} };
+
+    my $subj = '';
+    while( @subject ) {
+	my $name = $subject[0];
+	$name = $shortnames{$name} if( !$long && exists $shortnames{$name} );
+	$subj .= "/$name=" . join( ',', @{$subject[1]} );
+	splice( @subject, 0, 2 );
+    }
+
+    return $subj;
 }
 
 #this is an alternative function which allows to deal with multivalued subjects by returning an array instead of a single value
 sub domainComponent {
     my $self = shift;
     my @return;
-    foreach (@{$self->{'certificationRequestInfo'}->{'subject'}->{'domainComponent'}}) {
-        push @return, $_;
+    if( exists $self->{'certificationRequestInfo'}{'subject'}{'domainComponent'} ) {
+	foreach (@{$self->{'certificationRequestInfo'}{'subject'}{'domainComponent'}}) {
+	    push @return, $_;
+	}
     }
     return @return;
 }
 
 sub version {
     my $self = shift;
-    my $v = $self->{'certificationRequestInfo'}->{'version'};
-    return "v1" if $v == 0;
-    return "v2" if $v == 1;
-    return "v3" if $v == 2;
+    my $v = $self->{'certificationRequestInfo'}{'version'};
+    return sprintf( "v%u", $v+1 );
 }
 
 sub pkAlgorithm {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}->{'subjectPKInfo'}->{'algorithm'}->{'algorithm'};
+    return $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'algorithm'}{'algorithm'};
 }
 
 sub subjectPublicKey {
     my $self = shift;
-    return unpack('H*', $self->{'certificationRequestInfo'}->{'subjectPKInfo'}->{'subjectPublicKey'}->[0]);
+    my $format = shift;
+
+    return $self->{_pubkey} if( $format );
+    return unpack('H*', $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'subjectPublicKey'}->[0]);
 }
 
 sub signatureAlgorithm {
     my $self = shift;
-    return $self->{'signatureAlgorithm'}->{'algorithm'};
+    return $self->{'signatureAlgorithm'}{'algorithm'};
 }
 
 sub signature {
@@ -455,7 +494,9 @@ sub signature {
 
 sub attributes {
     my $self = shift;
-    my $attributes = $self->{'certificationRequestInfo'}->{'attributes'};
+    my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+    return () unless( defined $attributes );
+
     my %hash = map { $_->{'type'} => $_->{'values'} }
         @{$attributes};
     return %hash;
@@ -471,7 +512,7 @@ sub certificateTemplate {
             $template = $entry->{'extnValue'};
         }
     }
-    return $template; 
+    return $template;
 }
 
 sub extensionValue {
@@ -479,23 +520,43 @@ sub extensionValue {
     my $extensionName = shift;
     my %attributes = attributes($self);
     my $value;
+    return undef unless( exists $attributes{'extensionRequest'} );
     my @space = @{$attributes{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq $extensionName) {
             $value = $entry->{'extnValue'};
-            # reduce the hash items to the scalar value            
+            # reduce the hash items to the scalar value #??
             while (ref $value eq 'HASH') {
                 my @keys = keys %{$value};
                 $value = $value->{ shift @keys } ;
-            }            
+            }
+	    last;
         }
     }
-    return $value; 
+    return $value;
+}
+
+sub extensionPresent {
+    my $self = shift;
+    my $extensionName = shift;
+    my %attributes = attributes($self);
+    my $value;
+    return undef unless( exists $attributes{'extensionRequest'} );
+    my @space = @{$attributes{'extensionRequest'}};
+    foreach my $entry (@space) {
+        if ($entry->{'extnID'} eq $extensionName) {
+	    return 2 if ($entry->{critical});
+	    return 1;
+        }
+    }
+    return undef;
 }
 
 1;
 
 __END__
+
+=pod
 
 =head1 NAME
 
@@ -518,7 +579,15 @@ Crypt::PKCS10 parses PKCS #10 requests and provides accessor methods to extract 
 First, the request will be parsed using the included ASN.1 definition. Common object identifiers will be translated to their corresponding names.
 Additionally, accessor methods allow to extract single data fields. Bit Strings like signatures will be printed in their hexadecimal representation.
 
+The access methods return the value corresponding to their name.  If called in scalar context, they return the first value (or an empty string).  If called in array context, they return all values.
+
 =head1 METHODS
+
+Access methods may exist for subject name components that are not listed here.  To test for these, use code of the form:
+
+  $locality = $decoded->localityName if( $decoded->can('localityName') );
+
+If a component exists, the method will be present.  The converse is not (always) true.
 
 =head2 new
 
@@ -526,6 +595,12 @@ Constructor, creates a new object containing the parsed PKCS #10 request. It tak
 
     use Crypt::PKCS10;
     my $decoded = Crypt::PKCS10->new( $csr );
+
+=head2 csrRequest( $format )
+
+Returns the binary (ASN.1) request (after conversion from PEM and removal of any data beyond the length of the ASN.1 structure.
+
+If $format is true, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
 =head2 commonName
 
@@ -553,17 +628,34 @@ Returns the state or province name.
 
 Returns the country name.
 
+=head2 subject(format)
+
+Returns the subject of the CSR.
+
+In scalar context, returns the subject as a string in the form /componentName=value,value.
+  If format is true, long component names are used.  By default, abbreviations are used when known.
+
+  e.g. /countryName=AU/organizationalUnitName=Big org/organizationalUnitName=Smaller org
+  or     /C=AU/OU=Big org/OU=Smaller org
+
+In array context, returns an array of (componentName, [values]) pairs.  Abbreviations are not used.
+
+Note that the order of components in a name is significant.
+
+
 =head2 version
 
-The version is stored as an Integer where 0 means 'v1'. Note, there is an offset by one!
+Returns the structure version as a string, e.g. "v1" "v2", or "v3"
 
 =head2 pkAlgorithm
 
 Returns the public key algorithm according to its object identifier.
 
-=head2 subjectPublicKey
+=head2 subjectPublicKey( $format )
 
-The public key will be returned in its hexadecimal representation
+If $format is true, the public key will be returned in PEM format.
+
+Otherwise, the public key will be returned in its hexadecimal representation
 
 =head2 signatureAlgorithm
 
@@ -579,7 +671,70 @@ A request may contain a set of attributes. This method returns a reference to a 
 
     %attributes = $decoded->attributes;
     print Dumper(\%attributes);
-    
+
+=head2 extensionValue
+
+Returns the value of an extension by name, e.g. extensionValue( 'KeyUsage' )
+
+=head2 extensionPresent
+
+Returns true if a named extension is present.  If the extension is 'critical', returns 2.  Otherwise, returns 1.
+
+If the extension is not present, returns undef.
+
+The following OID names are known (not all are extensions):
+
+ countryName
+ stateOrProvinceName
+ organizationName
+ organizationalUnitName
+ commonName
+ emailAddress
+ unstructuredName
+ challengePassword
+ RSA encryption
+ SHA1 with RSA encryption
+ MD5 with RSA encryption
+ extensionRequest
+ OS_Version
+ EnrollmentCSP
+ ClientInformation
+ certificateTemplate
+ EnhancedKeyUsage
+ KeyUsage
+ ApplicationCertPolicies
+ SubjectKeyIdentifier
+ subjectAltName
+ certificateTemplateName
+ Basic Constraints
+ DSA
+ DSA with SHA1
+ domainComponent
+ localityName
+ SHA-256 with RSA encryption
+ SHA-512 with RSA encryption
+ MD2 with RSA encryption
+ SMIMECapabilities
+ SHA1 with RSA signature
+ RENEWAL_CERTIFICATE
+ ENROLLMENT_NAME_VALUE_PAIR
+ ENROLLMENT_CSP_PROVIDER
+ CERT_EXTENSIONS
+ KDC Authentication
+ countryOfResidence
+ SHA-256
+ Title
+ Description
+ postalCode
+ Surname
+ Name
+ givenName
+ initials
+ generationQualifier
+ uniqueIdentifier
+ dnQualifier
+ serialNumber
+
 =head2 certificateTemplate
 
 CertificateTemplate is an attribute widely used by Windows certification authorities.
@@ -602,3 +757,5 @@ a) the GNU General Public License as published by the Free
    later version, or
 
 b) the "Artistic License"
+
+=cut
