@@ -108,6 +108,26 @@ my %shortnames = (
 );
 
 
+# registerOID( $oid ) => true if $oid is registered, false if not
+# registerOID( $oid, $longname ) => Register an OID with its name
+# registerOID( $oid, $longname, $shortname ) => Register an OID with an abbreviation for RDNs.
+
+sub registerOID {
+    my( $class, $oid, $longname, $shortname ) = @_;
+
+    return exists $oids{$oid} if( @_ == 2 && defined $oid );
+
+    croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
+    croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
+    croak( "$oid already registered" )       if( exists $oids{$oid} );
+    croak( "$longname already registered" )  if( !defined $longname || grep /^$longname$/, values %oids );
+    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/, values %shortnames );
+
+    $oids{$oid} = $longname;
+    $shortnames{$longname} = uc $shortname   if( defined $shortname );
+    return 1;
+}
+
 sub new {
     my $class  = shift;
     my $der = shift;
@@ -418,7 +438,8 @@ sub csrRequest {
 
 # Common subject components documented to be always present:
 
-foreach my $component (qw/commonName organizationalUnitName organizationName emailAddress stateOrProvinceName countryName/ ) {
+foreach my $component (qw/commonName organizationalUnitName organizationName
+                          emailAddress stateOrProvinceName countryName domainComponent/ ) {
     no strict 'refs';
 
     unless( defined &$component ) {
@@ -449,18 +470,6 @@ sub subject {
     }
 
     return $subj;
-}
-
-#this is an alternative function which allows to deal with multivalued subjects by returning an array instead of a single value
-sub domainComponent {
-    my $self = shift;
-    my @return;
-    if( exists $self->{'certificationRequestInfo'}{'subject'}{'domainComponent'} ) {
-	foreach (@{$self->{'certificationRequestInfo'}{'subject'}{'domainComponent'}}) {
-	    push @return, $_;
-	}
-    }
-    return @return;
 }
 
 sub version {
@@ -734,6 +743,36 @@ The following OID names are known (not all are extensions):
  uniqueIdentifier
  dnQualifier
  serialNumber
+
+=head2 registerOID
+
+Class method.
+
+Register a custom OID, or a public OID that has not been added to Crypt::PKCS10 yet.
+
+The OID may be an extension identifier or an RDN component.
+
+The oid is specified as a string in numeric form, e.g. '1.2.3.4'
+
+=head3 registerOID( $oid )
+
+Returns true if the specified OID is registered, false otherwise.
+
+=head3 registerOID( $oid, $longname, $shortname )
+
+Registers the specified OID with the associated long name.
+The long name should be Hungarian case (commonName), but this is not currently
+enforced.
+
+Optionally, specify the short name used for extracting the subject.
+The short name should be upper-case (and will be upcased).
+
+E.g. built-in are $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN'
+
+
+Generates an exception if any argument is not valid, or is in use.
+
+Returns true otherwise.
 
 =head2 certificateTemplate
 
