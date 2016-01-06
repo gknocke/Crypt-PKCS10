@@ -464,10 +464,9 @@ sub subject {
 
     my $subj = '';
     while( @subject ) {
-	my $name = $subject[0];
+	my( $name, $value ) = splice( @subject, 0, 2 );
 	$name = $shortnames{$name} if( !$long && exists $shortnames{$name} );
-	$subj .= "/$name=" . join( ',', @{$subject[1]} );
-	splice( @subject, 0, 2 );
+	$subj .= "/$name=" . join( ',', @$value );
     }
 
     return $subj;
