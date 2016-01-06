@@ -56,8 +56,13 @@ my %oids = (
     '2.5.29.17'                     => 'subjectAltName',
     '1.3.6.1.4.1.311.20.2'          => 'certificateTemplateName',
     '2.16.840.1.113730.1.1'         => 'netscapeCertType',
+    '2.16.840.1.113730.1.2'         => 'netscapeBaseUrl'
+    '2.16.840.1.113730.1.4'         => 'netscapeCaRevocationUrl',
+    '2.16.840.1.113730.1.7'         => 'netscapeCertRenewalUrl',
+    '2.16.840.1.113730.1.8'         => 'netscapeCaPolicyUrl',
     '2.16.840.1.113730.1.12'        => 'netscapeSSLServerName',
     '2.16.840.1.113730.1.13'        => 'netscapeComment',
+
     #untested
     '2.5.29.19'                     => 'Basic Constraints',
     '1.2.840.10040.4.1'             => 'DSA',
@@ -719,6 +724,10 @@ The following OID names are known (not all are extensions):
  EnhancedKeyUsage
  KeyUsage
  netscapeCertType
+ netscapeBaseURL
+ netscapeCaRevocationUrl
+ netscapeCertRenewalUrl
+ netscapeCaPolicyUrl
  netscapeSSLServerName
  netscapeComment
  ApplicationCertPolicies
