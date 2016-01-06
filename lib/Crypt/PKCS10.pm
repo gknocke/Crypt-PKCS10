@@ -60,7 +60,7 @@ my %oids = (
     '1.2.840.10040.4.1'             => 'DSA',
     '1.2.840.10040.4.3'             => 'DSA with SHA1',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
-    '0.9.2342.19200300.100.1.1'     => 'UID',
+    '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
     '1.2.840.113549.1.1.11'         => 'SHA-256 with RSA encryption',
     '1.2.840.113549.1.1.13'         => 'SHA-512 with RSA encryption',
@@ -105,7 +105,7 @@ my %shortnames = (
 #		  emailAddress           => 'E', # Deprecated & not recognized by some software
 		  domainComponent        => 'DC',
 		  localityName           => 'L',
-		  uniqueIdentifier       => 'UID',
+		  userID                 => 'UID',
 );
 
 
@@ -516,6 +516,7 @@ sub certificateTemplate {
     my $self = shift;
     my %attributes = attributes($self);
     my $template;
+    return undef unless( exists $attributes{'extensionRequest'} );
     my @space = @{$attributes{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq 'certificateTemplate') {
@@ -742,6 +743,7 @@ The following OID names are known (not all are extensions):
  initials
  generationQualifier
  uniqueIdentifier
+ userID
  dnQualifier
  serialNumber
 
