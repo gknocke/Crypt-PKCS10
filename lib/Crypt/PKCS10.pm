@@ -120,7 +120,7 @@ sub registerOID {
     croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
     croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
     croak( "$oid already registered" )       if( exists $oids{$oid} );
-    croak( "$longname already registered" )  if( !defined $longname || grep /^$longname$/, values %oids );
+    croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
     croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/, values %shortnames );
 
     $oids{$oid} = $longname;
