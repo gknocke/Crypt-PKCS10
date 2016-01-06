@@ -55,6 +55,9 @@ my %oids = (
     '2.5.29.14'                     => 'SubjectKeyIdentifier',
     '2.5.29.17'                     => 'subjectAltName',
     '1.3.6.1.4.1.311.20.2'          => 'certificateTemplateName',
+    '2.16.840.1.113730.1.1'         => 'netscapeCertType',
+    '2.16.840.1.113730.1.12'        => 'netscapeSSLServerName',
+    '2.16.840.1.113730.1.13'        => 'netscapeComment',
     #untested
     '2.5.29.19'                     => 'Basic Constraints',
     '1.2.840.10040.4.1'             => 'DSA',
@@ -248,10 +251,12 @@ sub _mapExtensions {
 
     my $id =shift;
     my $value = shift;
-    if ($id eq 'KeyUsage') {
+    if ($id =~ /^(KeyUsage|netscapeCertType)$/) {
         my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
         my $length = int(log($bit) / log(2) + 1); #get its bit length
-        my @usages = reverse(qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly));
+        my @usages = reverse( $1 eq 'KeyUsage'? # Following are in order from bit 0 upwards
+			      qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
+			      qw(client server email objsign reserved sslCA emailCA objCA) );
         my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
         $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
     } elsif ($id eq 'EnhancedKeyUsage') {
@@ -299,7 +304,7 @@ sub _init {
     if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
     $asn->prepare(<<ASN1);
- 
+
     DirectoryString ::= CHOICE {
       teletexString   TeletexString,
       printableString PrintableString,
@@ -377,6 +382,7 @@ sub _init {
 
     EnhancedKeyUsage ::= SEQUENCE OF OBJECT IDENTIFIER
     KeyUsage ::= BIT STRING
+    netscapeCertType ::= BIT STRING
 
     ApplicationCertPolicies ::= SEQUENCE OF PolicyInformation
 
@@ -712,6 +718,9 @@ The following OID names are known (not all are extensions):
  certificateTemplate
  EnhancedKeyUsage
  KeyUsage
+ netscapeCertType
+ netscapeSSLServerName
+ netscapeComment
  ApplicationCertPolicies
  SubjectKeyIdentifier
  subjectAltName
