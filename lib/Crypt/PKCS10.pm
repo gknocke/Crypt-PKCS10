@@ -55,11 +55,20 @@ my %oids = (
     '2.5.29.14'                     => 'SubjectKeyIdentifier',
     '2.5.29.17'                     => 'subjectAltName',
     '1.3.6.1.4.1.311.20.2'          => 'certificateTemplateName',
+    '2.16.840.1.113730.1.1'         => 'netscapeCertType',
+    '2.16.840.1.113730.1.2'         => 'netscapeBaseUrl',
+    '2.16.840.1.113730.1.4'         => 'netscapeCaRevocationUrl',
+    '2.16.840.1.113730.1.7'         => 'netscapeCertRenewalUrl',
+    '2.16.840.1.113730.1.8'         => 'netscapeCaPolicyUrl',
+    '2.16.840.1.113730.1.12'        => 'netscapeSSLServerName',
+    '2.16.840.1.113730.1.13'        => 'netscapeComment',
+
     #untested
     '2.5.29.19'                     => 'Basic Constraints',
     '1.2.840.10040.4.1'             => 'DSA',
     '1.2.840.10040.4.3'             => 'DSA with SHA1',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
+    '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
     '1.2.840.113549.1.1.11'         => 'SHA-256 with RSA encryption',
     '1.2.840.113549.1.1.13'         => 'SHA-512 with RSA encryption',
@@ -104,9 +113,29 @@ my %shortnames = (
 #		  emailAddress           => 'E', # Deprecated & not recognized by some software
 		  domainComponent        => 'DC',
 		  localityName           => 'L',
-		  uniqueIdentifier       => 'UID',
+		  userID                 => 'UID',
 );
 
+
+# registerOID( $oid ) => true if $oid is registered, false if not
+# registerOID( $oid, $longname ) => Register an OID with its name
+# registerOID( $oid, $longname, $shortname ) => Register an OID with an abbreviation for RDNs.
+
+sub registerOID {
+    my( $class, $oid, $longname, $shortname ) = @_;
+
+    return exists $oids{$oid} if( @_ == 2 && defined $oid );
+
+    croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
+    croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
+    croak( "$oid already registered" )       if( exists $oids{$oid} );
+    croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
+    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/, values %shortnames );
+
+    $oids{$oid} = $longname;
+    $shortnames{$longname} = uc $shortname   if( defined $shortname );
+    return 1;
+}
 
 sub new {
     my $class  = shift;
@@ -227,10 +256,12 @@ sub _mapExtensions {
 
     my $id =shift;
     my $value = shift;
-    if ($id eq 'KeyUsage') {
+    if ($id =~ /^(KeyUsage|netscapeCertType)$/) {
         my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
         my $length = int(log($bit) / log(2) + 1); #get its bit length
-        my @usages = reverse(qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly));
+        my @usages = reverse( $1 eq 'KeyUsage'? # Following are in order from bit 0 upwards
+			      qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
+			      qw(client server email objsign reserved sslCA emailCA objCA) );
         my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
         $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
     } elsif ($id eq 'EnhancedKeyUsage') {
@@ -278,7 +309,7 @@ sub _init {
     if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
     $asn->prepare(<<ASN1);
- 
+
     DirectoryString ::= CHOICE {
       teletexString   TeletexString,
       printableString PrintableString,
@@ -356,6 +387,7 @@ sub _init {
 
     EnhancedKeyUsage ::= SEQUENCE OF OBJECT IDENTIFIER
     KeyUsage ::= BIT STRING
+    netscapeCertType ::= BIT STRING
 
     ApplicationCertPolicies ::= SEQUENCE OF PolicyInformation
 
@@ -418,7 +450,8 @@ sub csrRequest {
 
 # Common subject components documented to be always present:
 
-foreach my $component (qw/commonName organizationalUnitName organizationName emailAddress stateOrProvinceName countryName/ ) {
+foreach my $component (qw/commonName organizationalUnitName organizationName
+                          emailAddress stateOrProvinceName countryName domainComponent/ ) {
     no strict 'refs';
 
     unless( defined &$component ) {
@@ -442,25 +475,12 @@ sub subject {
 
     my $subj = '';
     while( @subject ) {
-	my $name = $subject[0];
+	my( $name, $value ) = splice( @subject, 0, 2 );
 	$name = $shortnames{$name} if( !$long && exists $shortnames{$name} );
-	$subj .= "/$name=" . join( ',', @{$subject[1]} );
-	splice( @subject, 0, 2 );
+	$subj .= "/$name=" . join( ',', @$value );
     }
 
     return $subj;
-}
-
-#this is an alternative function which allows to deal with multivalued subjects by returning an array instead of a single value
-sub domainComponent {
-    my $self = shift;
-    my @return;
-    if( exists $self->{'certificationRequestInfo'}{'subject'}{'domainComponent'} ) {
-	foreach (@{$self->{'certificationRequestInfo'}{'subject'}{'domainComponent'}}) {
-	    push @return, $_;
-	}
-    }
-    return @return;
 }
 
 sub version {
@@ -506,6 +526,7 @@ sub certificateTemplate {
     my $self = shift;
     my %attributes = attributes($self);
     my $template;
+    return undef unless( exists $attributes{'extensionRequest'} );
     my @space = @{$attributes{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq 'certificateTemplate') {
@@ -702,6 +723,13 @@ The following OID names are known (not all are extensions):
  certificateTemplate
  EnhancedKeyUsage
  KeyUsage
+ netscapeCertType
+ netscapeBaseURL
+ netscapeCaRevocationUrl
+ netscapeCertRenewalUrl
+ netscapeCaPolicyUrl
+ netscapeSSLServerName
+ netscapeComment
  ApplicationCertPolicies
  SubjectKeyIdentifier
  subjectAltName
@@ -732,8 +760,39 @@ The following OID names are known (not all are extensions):
  initials
  generationQualifier
  uniqueIdentifier
+ userID
  dnQualifier
  serialNumber
+
+=head2 registerOID
+
+Class method.
+
+Register a custom OID, or a public OID that has not been added to Crypt::PKCS10 yet.
+
+The OID may be an extension identifier or an RDN component.
+
+The oid is specified as a string in numeric form, e.g. '1.2.3.4'
+
+=head3 registerOID( $oid )
+
+Returns true if the specified OID is registered, false otherwise.
+
+=head3 registerOID( $oid, $longname, $shortname )
+
+Registers the specified OID with the associated long name.
+The long name should be Hungarian case (commonName), but this is not currently
+enforced.
+
+Optionally, specify the short name used for extracting the subject.
+The short name should be upper-case (and will be upcased).
+
+E.g. built-in are $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN'
+
+
+Generates an exception if any argument is not valid, or is in use.
+
+Returns true otherwise.
 
 =head2 certificateTemplate
 
