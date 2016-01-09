@@ -274,6 +274,20 @@ sub _mapExtensions {
         foreach my $entry (@{$value}) {
             $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
         }
+    } elsif (ref $value->[0] eq 'HASH') {
+	foreach my $entry (@{$value}) {
+	    if( exists $entry->{iPAddress} ) {
+		use bytes;
+		my $addr = $entry->{iPAddress};
+		if( length $addr == 4 ) {
+		    $entry->{iPAddress} = sprintf( '%vd', $entry->{iPAddress} );
+		} else {
+		    $addr = sprintf( '%*v02X', ':', $addr );
+		    $addr =~ s/([[:xdigit:]]{2}):([[:xdigit:]]{2})/$1$2/g;
+		    $entry->{iPAddress} = $addr;
+		}
+	    }
+	}
     }
     return $value
 }
