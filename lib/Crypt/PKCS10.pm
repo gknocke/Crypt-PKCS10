@@ -280,7 +280,7 @@ sub _mapExtensions {
 		use bytes;
 		my $addr = $entry->{iPAddress};
 		if( length $addr == 4 ) {
-		    $entry->{iPAddress} = sprintf( '%vd', $entry->{iPAddress} );
+		    $entry->{iPAddress} = sprintf( '%vd', $addr );
 		} else {
 		    $addr = sprintf( '%*v02X', ':', $addr );
 		    $addr =~ s/([[:xdigit:]]{2}):([[:xdigit:]]{2})/$1$2/g;
