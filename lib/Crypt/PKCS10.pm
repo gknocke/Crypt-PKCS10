@@ -64,7 +64,7 @@ my %oids = (
     '2.16.840.1.113730.1.13'        => 'netscapeComment',
 
     #untested
-    '2.5.29.19'                     => 'Basic Constraints',
+    '2.5.29.19'                     => 'BasicConstraints',
     '1.2.840.10040.4.1'             => 'DSA',
     '1.2.840.10040.4.3'             => 'DSA with SHA1',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
@@ -274,6 +274,10 @@ sub _mapExtensions {
         foreach my $entry (@{$value}) {
             $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
         }
+    } elsif( $id eq 'BasicConstraints' ) {
+	my $string = sprintf( 'CA:%s', ($value->{cA}? 'TRUE' : 'FALSE') );
+	$string .= sprintf( ',pathlen:%d', $value->{pathLenConstraint} ) if( exists $value->{pathLenConstraint} );
+	$value = $string;
     } elsif (ref $value->[0] eq 'HASH') {
 	foreach my $entry (@{$value}) {
 	    if( exists $entry->{iPAddress} ) {
@@ -322,7 +326,7 @@ sub _init {
     my $node = shift;
     if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
-    $asn->prepare(<<ASN1);
+    $asn->prepare(<<ASN1) or croak( $asn->error );
 
     DirectoryString ::= CHOICE {
       teletexString   TeletexString,
@@ -371,6 +375,10 @@ sub _init {
       attributes    [0] Attributes OPTIONAL}
 
     --- Extensions ---
+
+    BasicConstraints ::= SEQUENCE {
+        cA                  BOOLEAN OPTIONAL, -- DEFAULT FALSE,
+        pathLenConstraint   INTEGER OPTIONAL}
 
     OS_Version ::= IA5String
     emailAddress ::= IA5String
@@ -752,7 +760,9 @@ Returns the value of an extension by name, e.g. extensionValue( 'KeyUsage' )
 
 =head2 extensionPresent
 
-Returns true if a named extension is present.  If the extension is 'critical', returns 2.  Otherwise, returns 1.
+Returns true if a named extension is present:
+    If the extension is 'critical', returns 2.
+    Otherwise, returns 1 not 'critical', but present.
 
 If the extension is not present, returns undef.
 
@@ -787,7 +797,7 @@ The following OID names are known (not all are extensions):
  SubjectKeyIdentifier
  subjectAltName
  certificateTemplateName
- Basic Constraints
+ BasicConstraints
  DSA
  DSA with SHA1
  domainComponent
