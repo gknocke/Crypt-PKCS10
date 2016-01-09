@@ -141,7 +141,7 @@ sub new {
     my $class  = shift;
     my $der = shift;
 
-    my $parser = _init();
+    my $parser;
 
     if($der =~ /^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms) { #if PEM, convert to DER
         $der = decode_base64($1);
@@ -155,177 +155,8 @@ sub new {
     my $self = { _der => $substr };
     bless( $self, $class );
 
-    my $top =
-	$parser->decode($substr) or confess "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
-
-    $self->{'certificationRequestInfo'}{'subject'}
-        = $self->_convert_rdn( $top->{'certificationRequestInfo'}{'subject'} );
-
-    $self->{'certificationRequestInfo'}{'version'}
-        = $top->{'certificationRequestInfo'}{'version'};
-
-    $self->{'certificationRequestInfo'}{'attributes'} = $self->_convert_attributes(
-        $top->{'certificationRequestInfo'}{'attributes'} );
-
-    $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
-      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{'certificationRequestInfo'}{'subjectPKInfo'} ) ) .
-	"-----END PUBLIC KEY-----\n";
-    $self->{'certificationRequestInfo'}{'subjectPKInfo'} = $self->_convert_pkinfo(
-        $top->{'certificationRequestInfo'}{'subjectPKInfo'} );
-
-    $self->{'signature'} = $top->{'signature'};
-
-    $self->{'signatureAlgorithm'}
-        = $self->_convert_signatureAlgorithm( $top->{'signatureAlgorithm'} );
-
-    return $self;
-}
-
-sub _convert_signatureAlgorithm {
-    my $self = shift;
-
-    my $signatureAlgorithm = shift;
-    $signatureAlgorithm->{'algorithm'}
-        = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
-
-    if ($signatureAlgorithm->{'parameters'}{'undef'}) {
-        delete ($signatureAlgorithm->{'parameters'});
-    }
-    return $signatureAlgorithm;
-}
-
-sub _convert_pkinfo {
-    my $self = shift;
-
-    my $pkinfo = shift;
-
-    $pkinfo->{'algorithm'}{'algorithm'}
-        = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
-    if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
-        delete ($pkinfo->{'algorithm'}{'parameters'});
-    }
-    return $pkinfo;
-}
-
-sub _convert_attributes {
-    my $self = shift;
-
-    my $typeandvalues = shift;
-    foreach my $entry ( @{$typeandvalues} ) {
-         if (defined $oids{ $entry->{'type'}}) {
-            $entry->{'type'} = $oids{ $entry->{'type'} };
-            my $parser = _init($entry->{'type'}) or confess "Parser error: ", $entry->{'type'}, " needs entry in ASN.1 definition";
-
-            if ($entry->{'type'} eq 'extensionRequest') {
-                $entry->{'values'} = $self->_convert_extensionRequest($entry->{'values'}[0]);
-            }
-            else {
-                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $entry->{'type'};}
-                $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess "Looks like damaged input";
-            }
-         }
-    }
-    return $typeandvalues;
-}
-
-sub _convert_extensionRequest {
-    my $self = shift;
-
-    my $extensionRequest = shift;
-    my $parser = _init('extensionRequest');
-    my $decoded = $parser->decode($extensionRequest) or return [];
-    foreach my $entry (@{$decoded}) {
-	my $name = $oids{ $entry->{'extnID'} };
-        if (defined $name) {
-            my $parser = _init($name);
-            if(!$parser) {
-                $entry = undef;
-                next;
-            }
-            $entry->{'extnID'} = $name;
-            $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
-            $entry->{'extnValue'} = $self->_mapExtensions($name, $entry->{'extnValue'});
-        }
-    }
-    @{$decoded} = grep { defined } @{$decoded};
-    return $decoded;
-}
-
-sub _mapExtensions {
-    my $self = shift;
-
-    my $id =shift;
-    my $value = shift;
-    if ($id =~ /^(KeyUsage|netscapeCertType)$/) {
-        my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
-        my $length = int(log($bit) / log(2) + 1); #get its bit length
-        my @usages = reverse( $1 eq 'KeyUsage'? # Following are in order from bit 0 upwards
-			      qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
-			      qw(client server email objsign reserved sslCA emailCA objCA) );
-        my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
-        $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
-    } elsif ($id eq 'EnhancedKeyUsage') {
-        foreach (@{$value}) {
-            $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
-        }
-    } elsif ($id eq 'SubjectKeyIdentifier') {
-        $value = (unpack "H*", $value);
-    } elsif ($id eq 'ApplicationCertPolicies') {
-        foreach my $entry (@{$value}) {
-            $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
-        }
-    } elsif( $id eq 'BasicConstraints' ) {
-	my $string = sprintf( 'CA:%s', ($value->{cA}? 'TRUE' : 'FALSE') );
-	$string .= sprintf( ',pathlen:%d', $value->{pathLenConstraint} ) if( exists $value->{pathLenConstraint} );
-	$value = $string;
-    } elsif (ref $value->[0] eq 'HASH') {
-	foreach my $entry (@{$value}) {
-	    if( exists $entry->{iPAddress} ) {
-		use bytes;
-		my $addr = $entry->{iPAddress};
-		if( length $addr == 4 ) {
-		    $entry->{iPAddress} = sprintf( '%vd', $addr );
-		} else {
-		    $addr = sprintf( '%*v02X', ':', $addr );
-		    $addr =~ s/([[:xdigit:]]{2}):([[:xdigit:]]{2})/$1$2/g;
-		    $entry->{iPAddress} = $addr;
-		}
-	    }
-	}
-    }
-    return $value
-}
-
-
-sub _convert_rdn {
-    my $self = shift;
-    my $typeandvalue = shift;
-    my %hash;
-    foreach my $entry ( @$typeandvalue ) {
-	foreach my $item (@$entry) {
-	    my $name = $oids{ $item->{'type'} };
-	    if( defined $name ) {
-		push @{$hash{$name}}, values %{$item->{'value'}};
-		push @{$hash{_subject}}, $name, [ values %{$item->{'value'}} ];
-		unless( $self->can( $name ) ) {
-		    no strict 'refs';
-		    *$name =  sub {
-			my $self = shift;
-			return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
-			return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
-		    }
-		}
-	    }
-	}
-    }
-
-    return \%hash;
-}
-
-sub _init {
-    my $node = shift;
-    if ( !defined $node ) { $node = 'CertificationRequest' }
     my $asn = Convert::ASN1->new;
+    $self->{_asn} = $asn;
     $asn->prepare(<<ASN1) or croak( $asn->error );
 
     DirectoryString ::= CHOICE {
@@ -453,7 +284,180 @@ sub _init {
         directoryString DirectoryString}
 ASN1
 
-    my $parsed = $asn->find($node);
+    $parser = $self->_init( 'CertificationRequest' );
+
+    my $top =
+	$parser->decode($substr) or confess "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
+
+    $self->{'certificationRequestInfo'}{'subject'}
+        = $self->_convert_rdn( $top->{'certificationRequestInfo'}{'subject'} );
+
+    $self->{'certificationRequestInfo'}{'version'}
+        = $top->{'certificationRequestInfo'}{'version'};
+
+    $self->{'certificationRequestInfo'}{'attributes'} = $self->_convert_attributes(
+        $top->{'certificationRequestInfo'}{'attributes'} );
+
+    $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
+      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{'certificationRequestInfo'}{'subjectPKInfo'} ) ) .
+	"-----END PUBLIC KEY-----\n";
+    $self->{'certificationRequestInfo'}{'subjectPKInfo'} = $self->_convert_pkinfo(
+        $top->{'certificationRequestInfo'}{'subjectPKInfo'} );
+
+    $self->{'signature'} = $top->{'signature'};
+
+    $self->{'signatureAlgorithm'}
+        = $self->_convert_signatureAlgorithm( $top->{'signatureAlgorithm'} );
+
+    return $self;
+}
+
+sub _convert_signatureAlgorithm {
+    my $self = shift;
+
+    my $signatureAlgorithm = shift;
+    $signatureAlgorithm->{'algorithm'}
+        = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
+
+    if ($signatureAlgorithm->{'parameters'}{'undef'}) {
+        delete ($signatureAlgorithm->{'parameters'});
+    }
+    return $signatureAlgorithm;
+}
+
+sub _convert_pkinfo {
+    my $self = shift;
+
+    my $pkinfo = shift;
+
+    $pkinfo->{'algorithm'}{'algorithm'}
+        = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
+    if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
+        delete ($pkinfo->{'algorithm'}{'parameters'});
+    }
+    return $pkinfo;
+}
+
+sub _convert_attributes {
+    my $self = shift;
+
+    my $typeandvalues = shift;
+    foreach my $entry ( @{$typeandvalues} ) {
+         if (defined $oids{ $entry->{'type'}}) {
+            $entry->{'type'} = $oids{ $entry->{'type'} };
+            my $parser = $self->_init($entry->{'type'}) or confess "Parser error: ", $entry->{'type'}, " needs entry in ASN.1 definition";
+
+            if ($entry->{'type'} eq 'extensionRequest') {
+                $entry->{'values'} = $self->_convert_extensionRequest($entry->{'values'}[0]);
+            }
+            else {
+                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $entry->{'type'};}
+                $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess "Looks like damaged input";
+            }
+         }
+    }
+    return $typeandvalues;
+}
+
+sub _convert_extensionRequest {
+    my $self = shift;
+
+    my $extensionRequest = shift;
+    my $parser = $self->_init('extensionRequest');
+    my $decoded = $parser->decode($extensionRequest) or return [];
+    foreach my $entry (@{$decoded}) {
+	my $name = $oids{ $entry->{'extnID'} };
+        if (defined $name) {
+            my $parser = $self->_init($name);
+            if(!$parser) {
+                $entry = undef;
+                next;
+            }
+            $entry->{'extnID'} = $name;
+            $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
+            $entry->{'extnValue'} = $self->_mapExtensions($name, $entry->{'extnValue'});
+        }
+    }
+    @{$decoded} = grep { defined } @{$decoded};
+    return $decoded;
+}
+
+sub _mapExtensions {
+    my $self = shift;
+
+    my $id =shift;
+    my $value = shift;
+    if ($id =~ /^(KeyUsage|netscapeCertType)$/) {
+        my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
+        my $length = int(log($bit) / log(2) + 1); #get its bit length
+        my @usages = reverse( $1 eq 'KeyUsage'? # Following are in order from bit 0 upwards
+			      qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
+			      qw(client server email objsign reserved sslCA emailCA objCA) );
+        my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
+        $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
+    } elsif ($id eq 'EnhancedKeyUsage') {
+        foreach (@{$value}) {
+            $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
+        }
+    } elsif ($id eq 'SubjectKeyIdentifier') {
+        $value = (unpack "H*", $value);
+    } elsif ($id eq 'ApplicationCertPolicies') {
+        foreach my $entry (@{$value}) {
+            $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
+        }
+    } elsif( $id eq 'BasicConstraints' ) {
+	my $string = sprintf( 'CA:%s', ($value->{cA}? 'TRUE' : 'FALSE') );
+	$string .= sprintf( ',pathlen:%d', $value->{pathLenConstraint} ) if( exists $value->{pathLenConstraint} );
+	$value = $string;
+    } elsif (ref $value->[0] eq 'HASH') {
+	foreach my $entry (@{$value}) {
+	    if( exists $entry->{iPAddress} ) {
+		use bytes;
+		my $addr = $entry->{iPAddress};
+		if( length $addr == 4 ) {
+		    $entry->{iPAddress} = sprintf( '%vd', $addr );
+		} else {
+		    $addr = sprintf( '%*v02X', ':', $addr );
+		    $addr =~ s/([[:xdigit:]]{2}):([[:xdigit:]]{2})/$1$2/g;
+		    $entry->{iPAddress} = $addr;
+		}
+	    }
+	}
+    }
+    return $value
+}
+
+
+sub _convert_rdn {
+    my $self = shift;
+    my $typeandvalue = shift;
+    my %hash;
+    foreach my $entry ( @$typeandvalue ) {
+	foreach my $item (@$entry) {
+	    my $name = $oids{ $item->{'type'} };
+	    if( defined $name ) {
+		push @{$hash{$name}}, values %{$item->{'value'}};
+		push @{$hash{_subject}}, $name, [ values %{$item->{'value'}} ];
+		unless( $self->can( $name ) ) {
+		    no strict 'refs';
+		    *$name =  sub {
+			my $self = shift;
+			return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
+			return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
+		    }
+		}
+	    }
+	}
+    }
+
+    return \%hash;
+}
+
+sub _init {
+    my $self = shift;
+    my( $node ) = @_;
+
+    my $parsed = $self->{_asn}->find($node);
     return $parsed;
 }
 
