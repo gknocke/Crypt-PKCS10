@@ -483,6 +483,22 @@ sub subject {
     return $subj;
 }
 
+sub subjectAltName {
+    my $self = shift;
+    my( $type ) = @_;
+
+    my $san = $self->extensionValue( 'subjectAltName' );
+    unless( defined $san && defined $type ) {
+	return () if( wantarray );
+	return undef;
+    }
+
+    my $result = [ map { $_->{$type} } grep { exists $_->{$type} } @$san ];
+
+    return @$result if( wantarray );
+    return $result->[0];
+}
+
 sub version {
     my $self = shift;
     my $v = $self->{'certificationRequestInfo'}{'version'};
@@ -588,7 +604,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
     use Crypt::PKCS10;
 
     my $decoded = Crypt::PKCS10->new( $csr );
-    my $cn = $decoded->commonName();
+    my $subject = $decoded->subject;
 
 =head1 REQUIRES
 
@@ -663,6 +679,29 @@ In array context, returns an array of (componentName, [values]) pairs.  Abbrevia
 
 Note that the order of components in a name is significant.
 
+=head2 subjectAltName($type)
+
+Convenience method.
+
+Returns the subject alternate name values of the specified type in list context, or the first value
+of the specified type in scalar context.
+
+Returns undefined/empty list if no values of the specified type are present, or if the subjectAltName
+extension is not present.
+
+Types can be any of:
+
+   otherName
+ * rfc822Name
+ * dNSName
+   x400Address
+   directoryName
+   ediPartyName
+ * uniformResourceIdentifier
+ * iPAddress
+ * registeredID
+
+The types marked with '*' are the most common.
 
 =head2 version
 
