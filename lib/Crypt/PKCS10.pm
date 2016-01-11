@@ -630,6 +630,14 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
     use Crypt::PKCS10;
 
     my $decoded = Crypt::PKCS10->new( $csr );
+
+    #For finding the various names by which to address the subject.
+    my @subj_names = $decoded->subjectAltName($type);      #$type, e.g., 'dNSName'
+    if (!@subj_names) {
+        @subj_names = $decoded->commonName();
+    }
+
+    #For most kinds of identifying information.
     my $subject = $decoded->subject;
 
 =head1 REQUIRES
