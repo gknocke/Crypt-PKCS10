@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 17;
 
 BEGIN {
     use_ok('Crypt::PKCS10');
@@ -81,3 +81,36 @@ is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signat
 ok( !defined $decoded->certificateTemplate, 'certificateTemplate not present' );
 
 ok( !defined $decoded->extensionValue('foo'), 'extensionValue no extensions present' );
+
+$csr = << '_CSR';
+-----BEGIN CERTIFICATE REQUEST-----
+MIICyjCCAjMCAQAwgbMxCzAJBgNVBAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRl
+MRAwDgYDVQQHDAdteSBjaXR5MSEwHwYDVQQKDBhJbnRlcm5ldCBXaWRnaXRzIFB0
+eSBMdGQxEDAOBgNVBAsMB0JpZyBvcmcxFDASBgNVBAsMC1NtYWxsZXIgb3JnMRAw
+DgYDVQQDDAdNeSBOYW1lMSAwHgYJKoZIhvcNAQkBFhFub25lQG5vLWVtYWlsLmNv
+bTCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEAzOlneyhk1u32kaP0pnULKPmV
+Mfr7jhMawWyQxtQH2GozC4WT79bXHnICD+OAVXDBA1O+k3m4jTX2wK+gFw0hTR6k
+zKeGgjxzHtMyjPoJeQRgMe+UHSlRcczrFYF9SO4rTTgoKlRIlJfMyPuk+nVhtmCw
+TUR62b4grk/y1xP7W8sCAwEAAaCB1TCB0gYJKoZIhvcNAQkOMYHEMIHBMAkGA1Ud
+EwQCMAAwCwYDVR0PBAQDAgXgMIGmBgNVHREEgZ4wgZuBDm5vd2F5QG5vbmUuY29t
+hhhodHRwczovL2ZyZWQuZXhhbXBsZS5uZXSBG3NvbWVkYXlAbm93aGVyZS5leGFt
+cGxlLmNvbYIPd3d3LmV4YW1wbGUubmV0gg93d3cuZXhhbXBsZS5jb22CC2V4YW1w
+bGUubmV0ggtleGFtcGxlLmNvbYcECgIDBIcQIAENuAdBAAAAAAAAAAAAADANBgkq
+hkiG9w0BAQUFAAOBgQA6Q+I5b4pQmJuu92BXqkLmEb0PSidYo/OoEA81ADMMCzLv
+K5+fw2CvpFMTGDqqgKnhgIMOUWhmxkd+kN8cEUcGWFszm2vEP2QKe+CuqTW+mRzU
+KBw5bVq5Nq3W2s0ZOvfz/67Qhxdsoabn+pfEno8hNmYnt66L3rixdQA4BaodpA==
+-----END CERTIFICATE REQUEST-----
+_CSR
+
+$decoded= Crypt::PKCS10->new($csr);
+ok( defined $decoded, 'new() successful' );
+
+my $altname = $decoded->extensionValue('subjectAltName');
+ok( defined $altname && ref $altname eq 'ARRAY' && @$altname == 9, 'subjectAltName decode successful' );
+
+my $result;
+foreach my $item (@$altname) {
+    push @$result,  "$_=$item->{$_}" foreach( keys %$item );
+}
+
+is( join( ", ", @$result ), 'rfc822Name=noway@none.com, uniformResourceIdentifier=https://fred.example.net, rfc822Name=someday@nowhere.example.com, dNSName=www.example.net, dNSName=www.example.com, dNSName=example.net, dNSName=example.com, iPAddress=10.2.3.4, iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', "correct subjectAltName values" );
