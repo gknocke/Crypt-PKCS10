@@ -3,13 +3,15 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 21;
 
 BEGIN {
     use_ok('Crypt::PKCS10');
 }
 
 require_ok('Convert::ASN1');
+
+Crypt::PKCS10->setAPIversion(1);
 
 my $csr = 'random junk
 more stuff
@@ -74,9 +76,11 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
 is( $decoded->csrRequest(1), $extcsr, 'can extract PEM from CSR' );
 
-is( $decoded->pkAlgorithm, 'RSA encryption', 'correct encryption algorithm' );
+#is( $decoded->pkAlgorithm, 'RSA encryption', 'correct encryption algorithm' );
+is( $decoded->pkAlgorithm, 'rsaEncryption', 'correct encryption algorithm' );
 
-is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
+#is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
+is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'correct signature algorithm' );
 
 ok( !defined $decoded->certificateTemplate, 'certificateTemplate not present' );
 
@@ -114,3 +118,11 @@ foreach my $item (@$altname) {
 }
 
 is( join( ", ", @$result ), 'rfc822Name=noway@none.com, uniformResourceIdentifier=https://fred.example.net, rfc822Name=someday@nowhere.example.com, dNSName=www.example.net, dNSName=www.example.com, dNSName=example.net, dNSName=example.com, iPAddress=10.2.3.4, iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', "correct subjectAltName values" );
+
+is( $decoded->subjectAltName, 'rfc822Name:noway@none.com,uniformResourceIdentifier:https://fred.example.net,rfc822Name:someday@nowhere.example.com,dNSName:www.example.net,dNSName:www.example.com,dNSName:example.net,dNSName:example.com,iPAddress:10.2.3.4,iPAddress:2001:0DB8:0741:0000:0000:0000:0000:0000', "correct subjectAltName components" );
+
+is( join( ',', sort $decoded->subjectAltName ), 'dNSName,iPAddress,rfc822Name,uniformResourceIdentifier', 'correct subjectAltName as string' );
+
+is( join( ',', $decoded->subjectAltName( 'iPAddress' )), '10.2.3.4,2001:0DB8:0741:0000:0000:0000:0000:0000', 'correct extraction of IP address list' );
+
+is( $decoded->subjectAltName( 'iPAddress' ), '10.2.3.4', 'correct extraction of first IP address' );

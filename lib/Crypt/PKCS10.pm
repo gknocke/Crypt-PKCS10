@@ -27,10 +27,18 @@ use Carp;
 use Convert::ASN1;
 use MIME::Base64;
 
-our $VERSION = 1.3;
+our $VERSION = 1.4_01;
+
+my $apiVersion = 0;  # 0 for compatibility.  1 for prefered
 
 # N.B. Names are exposed in the API.
 #      %shortnames follows & depends on (some) values.
+# When adding OIDs, re-generate the documentation (see "for MAINTAINER" below)
+#
+# New OIDs don't need the [ ] syntax, which is [ prefered name, deprecated name ]
+# Some of the deprecated names are used in the ASN.1 definition. and in the $self
+# structure, which unfortunately is exposed with the attributes() method.
+# Dealing with the deprecated names causes some messy code.
 
 my %oids = (
     '2.5.4.6'                       => 'countryName',
@@ -41,20 +49,20 @@ my %oids = (
     '1.2.840.113549.1.9.1'          => 'emailAddress',
     '1.2.840.113549.1.9.2'          => 'unstructuredName',
     '1.2.840.113549.1.9.7'          => 'challengePassword',
-    '1.2.840.113549.1.1.1'          => 'RSA encryption',
-    '1.2.840.113549.1.1.5'          => 'SHA1 with RSA encryption',
-    '1.2.840.113549.1.1.4'          => 'MD5 with RSA encryption',
+    '1.2.840.113549.1.1.1'          => [ 'rsaEncryption', 'RSA encryption' ],
+    '1.2.840.113549.1.1.5'          => [ 'sha1WithRSAEncryption', 'SHA1 with RSA encryption' ],
+    '1.2.840.113549.1.1.4'          => [ 'md5WithRSAEncryption', 'MD5 with RSA encryption' ],
     '1.2.840.113549.1.9.14'         => 'extensionRequest',
-    '1.3.6.1.4.1.311.13.2.3'        => 'OS_Version',
-    '1.3.6.1.4.1.311.13.2.2'        => 'EnrollmentCSP',
-    '1.3.6.1.4.1.311.21.20'         => 'ClientInformation',
-    '1.3.6.1.4.1.311.21.7'          => 'certificateTemplate',
-    '2.5.29.37'                     => 'EnhancedKeyUsage',
-    '2.5.29.15'                     => 'KeyUsage',
-    '1.3.6.1.4.1.311.21.10'         => 'ApplicationCertPolicies',
-    '2.5.29.14'                     => 'SubjectKeyIdentifier',
+    '1.3.6.1.4.1.311.13.2.3'        => 'OS_Version',                   # Microsoft
+    '1.3.6.1.4.1.311.13.2.2'        => 'EnrollmentCSP',                # Microsoft
+    '1.3.6.1.4.1.311.21.20'         => 'ClientInformation',            # Microsoft REQUEST_CLIENT_INFO
+    '1.3.6.1.4.1.311.21.7'          => 'certificateTemplate',          # Microsoft
+    '2.5.29.37'                     => [ 'extKeyUsage', 'EnhancedKeyUsage' ],
+    '2.5.29.15'                     => [ 'keyUsage', 'KeyUsage' ],
+    '1.3.6.1.4.1.311.21.10'         => 'ApplicationCertPolicies',      # Microsoft APPLICATION_CERT_POLICIES
+    '2.5.29.14'                     => [ 'subjectKeyIdentifier', 'SubjectKeyIdentifier' ],
     '2.5.29.17'                     => 'subjectAltName',
-    '1.3.6.1.4.1.311.20.2'          => 'certificateTemplateName',
+    '1.3.6.1.4.1.311.20.2'          => 'certificateTemplateName',      # Microsoft
     '2.16.840.1.113730.1.1'         => 'netscapeCertType',
     '2.16.840.1.113730.1.2'         => 'netscapeBaseUrl',
     '2.16.840.1.113730.1.4'         => 'netscapeCaRevocationUrl',
@@ -64,36 +72,63 @@ my %oids = (
     '2.16.840.1.113730.1.13'        => 'netscapeComment',
 
     #untested
-    '2.5.29.19'                     => 'BasicConstraints',
-    '1.2.840.10040.4.1'             => 'DSA',
-    '1.2.840.10040.4.3'             => 'DSA with SHA1',
+    '2.5.29.19'                     => [ 'basicConstraints', 'Basic Constraints' ],
+    '1.2.840.10040.4.1'             => [ 'dsa', 'DSA' ],
+    '1.2.840.10040.4.3'             => [ 'dsaWithSha1', 'DSA with SHA1' ],
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
     '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
-    '1.2.840.113549.1.1.11'         => 'SHA-256 with RSA encryption',
-    '1.2.840.113549.1.1.13'         => 'SHA-512 with RSA encryption',
-    '1.2.840.113549.1.1.2'          => 'MD2 with RSA encryption',
-    '1.2.840.113549.1.9.15'         => 'SMIMECapabilities',
-    '1.3.14.3.2.29'                 => 'SHA1 with RSA signature',
-    '1.3.6.1.4.1.311.13.1'          => 'RENEWAL_CERTIFICATE',
-    '1.3.6.1.4.1.311.13.2.1'        => 'ENROLLMENT_NAME_VALUE_PAIR',
-    '1.3.6.1.4.1.311.13.2.2'        => 'ENROLLMENT_CSP_PROVIDER',
-    '1.3.6.1.4.1.311.2.1.14'        => 'CERT_EXTENSIONS',
-    '1.3.6.1.5.2.3.5'               => 'KDC Authentication',
+    '1.2.840.113549.1.1.11'         => [ 'sha256WithRSAEncryption', 'SHA-256 with RSA encryption' ],
+    '1.2.840.113549.1.1.12'         => 'sha384WithRSAEncryption',
+    '1.2.840.113549.1.1.13'         => [ 'sha512WithRSAEncryption', 'SHA-512 with RSA encryption' ],
+    '1.2.840.113549.1.1.14'         => 'sha224WithRSAEncryption',
+    '1.2.840.113549.1.1.2'          => [ 'md2WithRSAEncryption', 'MD2 with RSA encryption' ],
+    '1.2.840.113549.1.1.3'          => 'md4WithRSAEncryption',
+    '1.2.840.113549.1.1.6'          => 'rsaOAEPEncryptionSET',
+    '1.2.840.113549.1.1.7'          => 'RSAES-OAEP',
+    '1.2.840.113549.1.9.15'         => [ 'smimeCapabilities', 'SMIMECapabilities' ],
+    '1.3.14.3.2.29'                 => [ 'sha1WithRSAEncryption', 'SHA1 with RSA signature' ],
+    '1.3.6.1.4.1.311.13.1'          => 'RENEWAL_CERTIFICATE',          # Microsoft
+    '1.3.6.1.4.1.311.13.2.1'        => 'ENROLLMENT_NAME_VALUE_PAIR',   # Microsoft
+    '1.3.6.1.4.1.311.13.2.2'        => 'ENROLLMENT_CSP_PROVIDER',      # Microsoft
+    '1.3.6.1.4.1.311.2.1.14'        => 'CERT_EXTENSIONS',              # Microsoft
+    '1.3.6.1.5.2.3.5'               => [ 'keyPurposeKdc', 'KDC Authentication' ],
     '1.3.6.1.5.5.7.9.5'             => 'countryOfResidence',
-    '2.16.840.1.101.3.4.2.1'        => 'SHA-256',
-    '2.5.4.12'                      => 'Title',
-    '2.5.4.13'                      => 'Description',
+    '2.16.840.1.101.3.4.2.1'        => [ 'sha256', 'SHA-256' ],
+    '2.5.4.12'                      => [ 'title', 'Title' ],
+    '2.5.4.13'                      => [ 'description', 'Description' ],
+    '2.5.4.14'                      => 'searchGuide',
+    '2.5.4.15'                      => 'businessCategory',
+    '2.5.4.16'                      => 'postalAddress',
     '2.5.4.17'                      => 'postalCode',
-    '2.5.4.4'                       => 'Surname',
-    '2.5.4.41'                      => 'Name',
+    '2.5.4.18'                      => 'postOfficeBox',
+    '2.5.4.19',                     => 'physicalDeliveryOfficeName',
+    '2.5.4.20',                     => 'telephoneNumber',
+    '2.5.4.23',                     => 'facsimileTelephoneNumber',
+    '2.5.4.4'                       => [ 'surname', 'Surname' ],
+    '2.5.4.41'                      => [ 'name', 'Name' ],
     '2.5.4.42'                      => 'givenName',
     '2.5.4.43'                      => 'initials',
     '2.5.4.44'                      => 'generationQualifier',
     '2.5.4.45'                      => 'uniqueIdentifier',
     '2.5.4.46'                      => 'dnQualifier',
+    '2.5.4.51'                      => 'houseIdentifier',
+    '2.5.4.65'                      => 'pseudonym',
     '2.5.4.5'                       => 'serialNumber',
+    '2.5.4.9'                       => 'streetAddress',
 );
+
+my %variantNames;
+
+foreach (keys %oids) {
+    my $val = $oids{$_};
+    if( ref $val ) {
+	$variantNames{$_} = $val;                   # OID to [ new, trad ]
+	$variantNames{$val->[0]} = $val->[1];       # New name to traditional for lookups
+	$variantNames{'$' . $val->[1]} = $val->[0]; # \$Traditional to new
+	$oids{$_} = $val->[!$apiVersion || 0];
+    }
+}
 
 my %oid2extkeyusage = (
                 '1.3.6.1.5.5.7.3.1' => 'serverAuth',
@@ -116,6 +151,72 @@ my %shortnames = (
 		  userID                 => 'UID',
 );
 
+# For generating documentation, not part of API
+
+sub __listOIDs {
+    my $class = shift;
+    my ( $hash ) = @_;
+
+    sub _cmpOID {
+	my @a = split( /\./, $a );
+	my @b = split( /\./, $b );
+
+	while( @a && @b ) {
+	    my $c = shift @a <=> shift @b;
+	    return $c if( $c );
+	}
+	return @a <=> @b;
+    }
+
+    my @max = (0) x 3;
+    foreach my $oid ( keys %$hash ) {
+	my $len;
+
+	$len = length $oid;
+	$max[0] = $len if( $len > $max[0] );
+	if( exists $variantNames{$oid} ) {
+	    $len = length $variantNames{$oid}[0];
+	    $max[1] = $len if( $len > $max[1] );
+	    $len = length $variantNames{$oid}[1];
+	    $max[2] = $len if( $len > $max[2] );
+	} else {
+	    $len = length $hash->{$oid};
+	    $max[1] = $len if( $len > $max[1] );
+	}
+    }
+
+    printf( " %-*s %-*s %s\n %s %s %s\n", $max[0], 'OID', $max[1], 'Name (API v1)', 'Old Name (API v0)', '-' x $max[0], '-' x $max[1], '-' x $max[2] );
+
+    foreach my $oid ( sort _cmpOID keys %$hash ) {
+	printf( " %-*s %-*s", $max[0], $oid, $max[1], (exists $variantNames{$oid})? $variantNames{$oid}[0]: $hash->{$oid} );
+	printf( " (%-s)", $variantNames{$oid}[1] ) if( exists $variantNames{$oid} );
+	print( "\n" );
+    }
+    return;
+}
+
+sub _listOIDs {
+    my $class = shift;
+
+   $class-> __listOIDs( { %oids, %oid2extkeyusage } );
+
+    return;
+}
+
+sub setAPIversion {
+    my( $class, $version ) = @_;
+
+    $version = 0 unless( defined $version );
+    croak( "Unsupported API version\n" ) unless( $version >= 0 && $version <= 1 );
+    $apiVersion = $version;
+
+    $version = !$version || 0;
+
+    foreach (keys %variantNames) {
+	$oids{$_} = $variantNames{$_}[$version] if( /^\d/ ); # Map OID to selected name
+    }
+    return 1;
+}
 
 # registerOID( $oid ) => true if $oid is registered, false if not
 # registerOID( $oid, $longname ) => Register an OID with its name
@@ -343,15 +444,18 @@ sub _convert_attributes {
 
     my $typeandvalues = shift;
     foreach my $entry ( @{$typeandvalues} ) {
-         if (defined $oids{ $entry->{'type'}}) {
-            $entry->{'type'} = $oids{ $entry->{'type'} };
-            my $parser = $self->_init($entry->{'type'}) or confess "Parser error: ", $entry->{'type'}, " needs entry in ASN.1 definition";
+	my $oid = $entry->{type};
+	my $name = $oids{$oid};
+	$name = $variantNames{$name} if( defined $name && exists $variantNames{$name} );
+	if (defined $name) {
+            $entry->{type} = $name;
+            my $parser = $self->_init( $name ) or confess "Parser error: ", $name, " needs entry in ASN.1 definition";
 
-            if ($entry->{'type'} eq 'extensionRequest') {
+            if ($name eq 'extensionRequest') {
                 $entry->{'values'} = $self->_convert_extensionRequest($entry->{'values'}[0]);
             }
             else {
-                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $entry->{'type'};}
+                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $name;}
                 $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess "Looks like damaged input";
             }
          }
@@ -367,15 +471,18 @@ sub _convert_extensionRequest {
     my $decoded = $parser->decode($extensionRequest) or return [];
     foreach my $entry (@{$decoded}) {
 	my $name = $oids{ $entry->{'extnID'} };
+	$name = $variantNames{$name} if( defined $name && exists $variantNames{$name} );
         if (defined $name) {
-            my $parser = $self->_init($name);
+	    my $asnName = $name;
+	    $asnName =~ tr/ //d;
+            my $parser = $self->_init($asnName);
             if(!$parser) {
                 $entry = undef;
                 next;
             }
             $entry->{'extnID'} = $name;
             $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
-            $entry->{'extnValue'} = $self->_mapExtensions($name, $entry->{'extnValue'});
+            $entry->{'extnValue'} = $self->_mapExtensions($asnName, $entry->{'extnValue'});
         }
     }
     @{$decoded} = grep { defined } @{$decoded};
@@ -434,16 +541,20 @@ sub _convert_rdn {
     my %hash;
     foreach my $entry ( @$typeandvalue ) {
 	foreach my $item (@$entry) {
-	    my $name = $oids{ $item->{'type'} };
+	    my $oid = $item->{type};
+	    my $name = (exists $variantNames{$oid})? $variantNames{$oid}[1]: $oids{ $oid };
 	    if( defined $name ) {
 		push @{$hash{$name}}, values %{$item->{'value'}};
 		push @{$hash{_subject}}, $name, [ values %{$item->{'value'}} ];
-		unless( $self->can( $name ) ) {
-		    no strict 'refs';
-		    *$name =  sub {
-			my $self = shift;
-			return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
-			return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
+		my @names = (exists $variantNames{$oid})? @{$variantNames{$oid}} : ( $name );
+		foreach my $name ( @names ) {
+		    unless( $self->can( $name ) ) {
+			no strict 'refs';
+			*$name =  sub {
+			    my $self = shift;
+			    return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
+			    return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
+			}
 		    }
 		}
 	    }
@@ -514,9 +625,22 @@ sub subjectAltName {
     my( $type ) = @_;
 
     my $san = $self->extensionValue( 'subjectAltName' );
-    unless( defined $san && defined $type ) {
+    unless( defined $san ) {
 	return () if( wantarray );
 	return undef;
+    }
+
+    if( !defined $type ) {
+	if( wantarray ) {
+	    my %comps;
+	    $comps{$_} = 1 foreach (map { keys %$_ } @$san);
+	    return keys %comps;
+	}
+	my @string;
+	foreach my $comp (@$san) {
+	    push @string, join( '+', map { "$_:$comp->{$_}" } sort keys %$comp );
+	}
+	return join( ',', @string );
     }
 
     my $result = [ map { $_->{$type} } grep { exists $_->{$type} } @$san ];
@@ -578,12 +702,28 @@ sub certificateTemplate {
     return $template;
 }
 
+sub extensions {
+    my $self = shift;
+
+    my %attributes = attributes($self);
+    return () unless( exists $attributes{extensionRequest} );
+
+    my @present =  map { $_->{extnID} } @{$attributes{extensionRequest}};
+    if( $apiVersion >= 1 ) {
+	foreach my $ext (@present) {
+	    $ext = $variantNames{'$' . $ext} if( exists $variantNames{'$' . $ext} );
+	}
+    }
+    return @present;
+}
+
 sub extensionValue {
     my $self = shift;
     my $extensionName = shift;
     my %attributes = attributes($self);
     my $value;
     return undef unless( exists $attributes{'extensionRequest'} );
+    $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
     my @space = @{$attributes{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq $extensionName) {
@@ -605,6 +745,7 @@ sub extensionPresent {
     my %attributes = attributes($self);
     my $value;
     return undef unless( exists $attributes{'extensionRequest'} );
+    $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
     my @space = @{$attributes{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq $extensionName) {
@@ -629,8 +770,14 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
     use Crypt::PKCS10;
 
+    Crypt::PKCS10->setAPIversion( 1 );
     my $decoded = Crypt::PKCS10->new( $csr );
-    my $subject = $decoded->subject;
+
+    my @names;
+    @names = $decoded->extensionValue('subjectAltName' );
+    @names = $decoded->subject unless( @names );
+
+    my %extensions = map { $_ => $decoded->extensionValue( $_ ) } $decoded->extensions
 
 =head1 REQUIRES
 
@@ -638,9 +785,11 @@ Convert::ASN1
 
 =head1 DESCRIPTION
 
-Crypt::PKCS10 parses PKCS #10 requests and provides accessor methods to extract the requested data.
-First, the request will be parsed using the included ASN.1 definition. Common object identifiers will be translated to their corresponding names.
-Additionally, accessor methods allow to extract single data fields. Bit Strings like signatures will be printed in their hexadecimal representation.
+Crypt::PKCS10 parses PKCS #10 certificate requests (CSRs) and provides accessor methods to extract the data in usable form.
+
+Common object identifiers will be translated to their corresponding names.
+Additionally, accessor methods allow extraction of single data fields.
+Bit Strings like signatures will be returned in their hexadecimal representation.
 
 The access methods return the value corresponding to their name.  If called in scalar context, they return the first value (or an empty string).  If called in array context, they return all values.
 
@@ -650,13 +799,43 @@ Access methods may exist for subject name components that are not listed here.  
 
   $locality = $decoded->localityName if( $decoded->can('localityName') );
 
-If a component exists, the method will be present.  The converse is not (always) true.
+If a name component exists in a CSR, the method will be present.  The converse is not (always) true.
+
+=head2 setAPIversion( $version )
+
+Selects the API version expected.
+
+Should be called before creating any objects.
+
+=over 4
+
+=item o
+
+Version 0 = Some OID names have spaces and descriptions - DEPRECATED
+
+This is the format used for Crypt::PKCS10 version 1.3 and lower.
+
+=item o
+
+Version 1 = OID names from RFCs - or at least compatible with OpenSSL and ASN.1 notation
+
+=back
+
+Currently, the default is version 0, but this will change to version 1 in a future release.
+
+To ease migration, both old and new names are accepted by the API.
+
+Every program should call setAPIversion(1).
+
+=cut
 
 =head2 new
 
-Constructor, creates a new object containing the parsed PKCS #10 request. It takes the request itself as an argument. PEM and DER encoding is supported.
+Constructor, creates a new object containing the parsed PKCS #10 request
+It takes the request itself as an argument. PEM and DER encoding is supported.
 
-    use Crypt::PKCS10;
+If PEM, other data (such as mail headers) may precede or follow the CSR.
+
     my $decoded = Crypt::PKCS10->new( $csr );
 
 =head2 csrRequest( $format )
@@ -665,35 +844,13 @@ Returns the binary (ASN.1) request (after conversion from PEM and removal of any
 
 If $format is true, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
-=head2 commonName
+=head2 Access methods for the subject's distinguished name
 
-Returns the common name as stored in the request.
+Note that subjectAltName is prefered, and modern certificate users will ignore the subject if subjectAltName is present.
 
-    my $cn = $decoded->commonName();
+=head3 subject(format)
 
-=head2 organizationalUnitName
-
-Returns the organizational unit name.
-
-=head2 organizationName
-
-Returns the organization name.
-
-=head2 emailAddress
-
-Returns the email address.
-
-=head2 stateOrProvinceName
-
-Returns the state or province name.
-
-=head2 countryName
-
-Returns the country name.
-
-=head2 subject(format)
-
-Returns the subject of the CSR.
+Returns the entire subject of the CSR.
 
 In scalar context, returns the subject as a string in the form /componentName=value,value.
   If format is true, long component names are used.  By default, abbreviations are used when known.
@@ -705,11 +862,37 @@ In array context, returns an array of (componentName, [values]) pairs.  Abbrevia
 
 Note that the order of components in a name is significant.
 
+=head3 commonName
+
+Returns the common name(s) from the subject.
+
+    my $cn = $decoded->commonName();
+
+=head3 organizationalUnitName
+
+Returns the organizational unit name(s) from the subject
+
+=head3 organizationName
+
+Returns the organization name(s) from the subject.
+
+=head3 emailAddress
+
+Returns the email address from the subject.
+
+=head3 stateOrProvinceName
+
+Returns the state or province name(s) from the subject.
+
+=head2 countryName
+
+Returns the country name(s) from the subject.
+
 =head2 subjectAltName($type)
 
 Convenience method.
 
-Returns the subject alternate name values of the specified type in list context, or the first value
+When $type is specified: returns the subject alternate name values of the specified type in list context, or the first value
 of the specified type in scalar context.
 
 Returns undefined/empty list if no values of the specified type are present, or if the subjectAltName
@@ -728,6 +911,10 @@ Types can be any of:
  * registeredID
 
 The types marked with '*' are the most common.
+
+If $type is not specified:
+ In list context returns the types present in the subjectAlternate name.
+ In scalar context, returns the SAN as a string.
 
 =head2 version
 
@@ -753,83 +940,136 @@ The signature will be returned in its hexadecimal representation
 
 =head2 attributes
 
-A request may contain a set of attributes. This method returns a reference to a hash consisting of all attributes.
+A request may contain a set of attributes. The attributes are OIDs with values.
 
-    %attributes = $decoded->attributes;
-    print Dumper(\%attributes);
+This method returns a hash consisting of all attributes in an internal format.
+
+Use extensions() instead.
+
+=head2 extensions
+
+Returns an array containing the names of all extensions present in the CSR.  If no extensions are present,
+the empty list is returned.
+
+The names vary depending on the API version; however, the returned names are acceptable to  extensionValue and extensionPresent.
+
+The values of extensions vary, however the following code fragment will dump most extensions and their value(s).
+
+ foreach my $ext ($decoded->extensions) {
+     my $val = $decoded->extensionValue($ext);
+     $val = join( ',', map { ref $_ eq 'HASH'?
+                  join( ':', (keys %$_)[0], (values %$_)[0] ): $_} @$val )
+            if( ref $val eq 'ARRAY' );
+     print( "$ext: ", $val, "\n" );
+ }
+
+The sample code fragment is not guaranteed to handle all cases.  Realistic code needs to select the extensions that it understands.
 
 =head2 extensionValue
 
-Returns the value of an extension by name, e.g. extensionValue( 'KeyUsage' )
+Returns the value of an extension by name, e.g. extensionValue( 'keyUsage' ).  The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
+
+To interpret the value, you need to know the structure of the OID.
+
+Depending on the extension, the value may be a string, an array of strings, or an array of hashes.
 
 =head2 extensionPresent
 
 Returns true if a named extension is present:
     If the extension is 'critical', returns 2.
-    Otherwise, returns 1 not 'critical', but present.
+    Otherwise, returns 1, indicating 'not critical', but present.
 
 If the extension is not present, returns undef.
 
 The following OID names are known (not all are extensions):
 
- countryName
- stateOrProvinceName
- organizationName
- organizationalUnitName
- commonName
- emailAddress
- unstructuredName
- challengePassword
- RSA encryption
- SHA1 with RSA encryption
- MD5 with RSA encryption
- extensionRequest
- OS_Version
- EnrollmentCSP
- ClientInformation
- certificateTemplate
- EnhancedKeyUsage
- KeyUsage
- netscapeCertType
- netscapeBaseURL
- netscapeCaRevocationUrl
- netscapeCertRenewalUrl
- netscapeCaPolicyUrl
- netscapeSSLServerName
- netscapeComment
- ApplicationCertPolicies
- SubjectKeyIdentifier
- subjectAltName
- certificateTemplateName
- BasicConstraints
- DSA
- DSA with SHA1
- domainComponent
- localityName
- SHA-256 with RSA encryption
- SHA-512 with RSA encryption
- MD2 with RSA encryption
- SMIMECapabilities
- SHA1 with RSA signature
- RENEWAL_CERTIFICATE
- ENROLLMENT_NAME_VALUE_PAIR
- ENROLLMENT_CSP_PROVIDER
- CERT_EXTENSIONS
- KDC Authentication
- countryOfResidence
- SHA-256
- Title
- Description
- postalCode
- Surname
- Name
- givenName
- initials
- generationQualifier
- uniqueIdentifier
- userID
- dnQualifier
- serialNumber
+=begin MAINTAINER
+
+ To generate the following table, use:
+    perl -Mwarnings -Mstrict -MCrypt::PKCS10 -e'Crypt::PKCS10->_listOIDs'
+
+=end MAINTAINER
+
+ OID                        Name (API v1)              Old Name (API v0)
+ -------------------------- -------------------------- ---------------------------
+ 0.9.2342.19200300.100.1.1  userID
+ 0.9.2342.19200300.100.1.25 domainComponent
+ 1.2.840.10040.4.1          DSA
+ 1.2.840.10040.4.3          dsaWithSha1                (DSA with SHA1)
+ 1.2.840.113549.1.1.1       rsaEncryption              (RSA encryption)
+ 1.2.840.113549.1.1.2       md2WithRSAEncryption       (MD2 with RSA encryption)
+ 1.2.840.113549.1.1.3       md4WithRSAEncryption
+ 1.2.840.113549.1.1.4       md5WithRSAEncryption       (MD5 with RSA encryption)
+ 1.2.840.113549.1.1.5       sha1WithRSAEncryption      (SHA1 with RSA encryption)
+ 1.2.840.113549.1.1.6       rsaOAEPEncryptionSET
+ 1.2.840.113549.1.1.7       RSAES-OAEP
+ 1.2.840.113549.1.1.11      sha256WithRSAEncryption    (SHA-256 with RSA encryption)
+ 1.2.840.113549.1.1.12      sha384WithRSAEncryption
+ 1.2.840.113549.1.1.13      sha512WithRSAEncryption    (SHA-512 with RSA encryption)
+ 1.2.840.113549.1.1.14      sha224WithRSAEncryption
+ 1.2.840.113549.1.9.1       emailAddress
+ 1.2.840.113549.1.9.2       unstructuredName
+ 1.2.840.113549.1.9.7       challengePassword
+ 1.2.840.113549.1.9.14      extensionRequest
+ 1.2.840.113549.1.9.15      smimeCapabilities          (SMIMECapabilities)
+ 1.3.6.1.4.1.311.2.1.14     CERT_EXTENSIONS
+ 1.3.6.1.4.1.311.13.1       RENEWAL_CERTIFICATE
+ 1.3.6.1.4.1.311.13.2.1     ENROLLMENT_NAME_VALUE_PAIR
+ 1.3.6.1.4.1.311.13.2.2     ENROLLMENT_CSP_PROVIDER
+ 1.3.6.1.4.1.311.13.2.3     OS_Version
+ 1.3.6.1.4.1.311.20.2       certificateTemplateName
+ 1.3.6.1.4.1.311.21.7       certificateTemplate
+ 1.3.6.1.4.1.311.21.10      ApplicationCertPolicies
+ 1.3.6.1.4.1.311.21.20      ClientInformation
+ 1.3.6.1.5.2.3.5            keyPurposeKdc              (KDC Authentication)
+ 1.3.6.1.5.5.7.3.1          serverAuth
+ 1.3.6.1.5.5.7.3.2          clientAuth
+ 1.3.6.1.5.5.7.3.3          codeSigning
+ 1.3.6.1.5.5.7.3.4          emailProtection
+ 1.3.6.1.5.5.7.3.8          timeStamping
+ 1.3.6.1.5.5.7.3.9          OCSPSigning
+ 1.3.6.1.5.5.7.9.5          countryOfResidence
+ 1.3.14.3.2.29              sha1WithRSAEncryption      (SHA1 with RSA signature)
+ 2.5.4.3                    commonName
+ 2.5.4.4                    surname                    (Surname)
+ 2.5.4.5                    serialNumber
+ 2.5.4.6                    countryName
+ 2.5.4.7                    localityName
+ 2.5.4.8                    stateOrProvinceName
+ 2.5.4.9                    streetAddress
+ 2.5.4.10                   organizationName
+ 2.5.4.11                   organizationalUnitName
+ 2.5.4.12                   title                      (Title)
+ 2.5.4.13                   description                (Description)
+ 2.5.4.14                   searchGuide
+ 2.5.4.15                   businessCategory
+ 2.5.4.16                   postalAddress
+ 2.5.4.17                   postalCode
+ 2.5.4.18                   postOfficeBox
+ 2.5.4.19                   physicalDeliveryOfficeName
+ 2.5.4.20                   telephoneNumber
+ 2.5.4.23                   facsimileTelephoneNumber
+ 2.5.4.41                   name                       (Name)
+ 2.5.4.42                   givenName
+ 2.5.4.43                   initials
+ 2.5.4.44                   generationQualifier
+ 2.5.4.45                   uniqueIdentifier
+ 2.5.4.46                   dnQualifier
+ 2.5.4.51                   houseIdentifier
+ 2.5.4.65                   pseudonym
+ 2.5.29.14                  subjectKeyIdentifier       (SubjectKeyIdentifier)
+ 2.5.29.15                  keyUsage                   (KeyUsage)
+ 2.5.29.17                  subjectAltName
+ 2.5.29.19                  basicConstraints           (Basic Constraints)
+ 2.5.29.37                  extKeyUsage                (EnhancedKeyUsage)
+ 2.16.840.1.101.3.4.2.1     sha256                     (SHA-256)
+ 2.16.840.1.113730.1.1      netscapeCertType
+ 2.16.840.1.113730.1.2      netscapeBaseUrl
+ 2.16.840.1.113730.1.4      netscapeCaRevocationUrl
+ 2.16.840.1.113730.1.7      netscapeCertRenewalUrl
+ 2.16.840.1.113730.1.8      netscapeCaPolicyUrl
+ 2.16.840.1.113730.1.12     netscapeSSLServerName
+ 2.16.840.1.113730.1.13     netscapeComment
 
 =head2 registerOID
 
@@ -868,6 +1108,8 @@ CertificateTemplate is an attribute widely used by Windows certification authori
 =head1 AUTHORS
 
 Gideon Knocke
+
+Timothe Litt made most of the changes for V1.4
 
 =head1 COPYRIGHT
 
