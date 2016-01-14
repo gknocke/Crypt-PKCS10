@@ -1149,6 +1149,10 @@ Gideon Knocke
 
 Timothe Litt made most of the changes for V1.4
 
+Crypt::PKCS10 is based on the generic ASN.1 module by Graham Barr and on the
+ x509decode example by Norbert Klasen. It is also based upon the
+works of Duncan Segrest's Crypt-X509-CRL module.
+
 =head1 COPYRIGHT
 
 This software is copyright (c) 2014 by Gideon Knocke.
