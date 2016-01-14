@@ -149,6 +149,8 @@ my %shortnames = (
 		  domainComponent        => 'DC',
 		  localityName           => 'L',
 		  userID                 => 'UID',
+		  surname                => 'SN',
+		  givenName              => 'GN',
 );
 
 # For generating documentation, not part of API
@@ -680,12 +682,48 @@ sub signature {
 
 sub attributes {
     my $self = shift;
+    my( $name ) = @_;
+
     my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
     return () unless( defined $attributes );
 
-    my %hash = map { $_->{'type'} => $_->{'values'} }
-        @{$attributes};
-    return %hash;
+    if( $apiVersion < 1 ) {
+	my %hash = map { $_->{'type'} => $_->{'values'} }
+	  @{$attributes};
+	return %hash;
+    }
+
+    unless( defined $name ) {
+	return map { $_->{type} } grep { $_->{type} ne 'extensionRequest' } @$attributes;
+    }
+
+    if( $name eq 'extensionRequest' ) { # Meaningless, and extensions/extensionValue handle
+	return () if( wantarray );
+	return undef;
+    }
+
+    my @attrs = grep { $_->{type} eq $name } @$attributes;
+    unless( @attrs ) {
+	return () if( wantarray );
+	return undef;
+    }
+
+    my @values;
+    foreach my $attr (@attrs) {
+	my $values = $attr->{values};
+	$values = [ $values ] unless( ref $values eq 'ARRAY' );
+	my @value;
+	foreach my $value (@$values)  {
+	    while( ref $value eq 'HASH' ) {
+		$value = $value->{ (grep { $_ !~ /^(?:critical|.*id)/i } keys %$value)[0] };
+	    }
+	    push @value, $value;
+	}
+	push @values, wantarray? @value : join( '+', @value );
+    }
+
+    return @values if( wantarray );
+    return join( ',', @values );
 }
 
 sub certificateTemplate {
@@ -956,13 +994,28 @@ Returns the signature algorithm according to its object identifier.
 
 The signature will be returned in its hexadecimal representation
 
-=head2 attributes
+=head2 attributes( $name )
 
 A request may contain a set of attributes. The attributes are OIDs with values.
+The most common is a list of requested extensions, but other OIDs can also
+occur.  Of those, challengePassword is typical.
 
-This method returns a hash consisting of all attributes in an internal format.
+For API version 0, this method returns a hash consisting of all
+attributes in an internal format.  This usage is deprecated.
 
-Use extensions() instead.
+For API version 1:
+
+If $name is not specified, a list of attribute names is returned.  The list does not
+include the requestedExtensions attribute.  For that, use extensions();
+
+If no attributes are present, the empty list (undef in scalar context) is returned.
+
+If $name is specified, the value of the extension is returned.  (Only string values
+are currently supported.)  In scalar context, a single string is returned with multiple
+values separated by ',' or '+'.  In array context, the value(s) are returned.
+
+ print "$_: ", scalar $decoded->attributes($_), "\n"
+                                     foreach ($decoded->attributes);
 
 =head2 extensions
 

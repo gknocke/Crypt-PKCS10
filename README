@@ -167,14 +167,30 @@ METHODS
   signature
     The signature will be returned in its hexadecimal representation
 
-  attributes
+  attributes( $name )
     A request may contain a set of attributes. The attributes are OIDs with
-    values.
+    values. The most common is a list of requested extensions, but other
+    OIDs can also occur. Of those, challengePassword is typical.
 
-    This method returns a hash consisting of all attributes in an internal
-    format.
+    For API version 0, this method returns a hash consisting of all
+    attributes in an internal format. This usage is deprecated.
 
-    Use extensions() instead.
+    For API version 1:
+
+    If $name is not specified, a list of attribute names is returned. The
+    list does not include the requestedExtensions attribute. For that, use
+    extensions();
+
+    If no attributes are present, the empty list (undef in scalar context)
+    is returned.
+
+    If $name is specified, the value of the extension is returned. (Only
+    string values are currently supported.) In scalar context, a single
+    string is returned with multiple values separated by ',' or '+'. In
+    array context, the value(s) are returned.
+
+     print "$_: ", scalar $decoded->attributes($_), "\n"
+                                         foreach ($decoded->attributes);
 
   extensions
     Returns an array containing the names of all extensions present in the
@@ -275,7 +291,7 @@ CHANGES
         - Support repeated attributes
         - Various crashes, internal optimizations
         - More OIDs
-        - Access methods: subject, subjectAltName, extensions,
+        - Access methods: subject, subjectAltName, extensions
         - Generate access methods for unknown OIDs in DNs at runtime
         - Add extractCSR method to get CSR in binary or PEM
         - subjectPublicKey option to extract in PEM format
@@ -285,6 +301,7 @@ CHANGES
         - More tests
         - Improve documentation
         - Add setAPIversion, regularize OID names in V1
+        - For API V1, attributes method returns names or values of attributes (except extensions)
         - Improve build: Use Dist::Zilla, autogenerate README,LICENE,META,Makefile.PL
         - Generate & ship Commitlog from git
     For detailed change listing, see Commitlog.
