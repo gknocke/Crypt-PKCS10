@@ -1,16 +1,25 @@
 ---
+abstract: 'parse PKCS #10 certificate requests'
 author:
   - 'Gideon Knocke <gknocke@cpan.org>'
-build_requires: {}
+  - 'Timothe Litt <tlhackque@cpan.org>'
+build_requires:
+  Pod::Readme: 0.11
+  Test::More: 0
 configure_requires:
-  ExtUtils::MakeMaker: '6.30'
+  ExtUtils::MakeMaker: 0
 dynamic_config: 0
-generated_by: 'Dist::Zilla version 5.019, CPAN::Meta::Converter version 2.141520'
+generated_by: 'Dist::Zilla version 5.043, CPAN::Meta::Converter version 2.143240'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: '1.4'
+  version: 1.4
 name: Crypt-PKCS10
 requires:
-  Convert::ASN1: '0.27'
-version: '1.0'
+  Carp: 0
+  Convert::ASN1: 0.27
+  MIME::Base64: 0
+  bytes: 0
+  strict: 0
+  warnings: 0
+version: 1.401

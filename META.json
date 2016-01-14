@@ -1,0 +1,47 @@
+{
+   "abstract" : "parse PKCS #10 certificate requests",
+   "author" : [
+      "Gideon Knocke <gknocke@cpan.org>",
+      "Timothe Litt <tlhackque@cpan.org>"
+   ],
+   "dynamic_config" : 0,
+   "generated_by" : "Dist::Zilla version 5.043, CPAN::Meta::Converter version 2.143240",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "Crypt-PKCS10",
+   "prereqs" : {
+      "build" : {
+         "requires" : {
+            "Pod::Readme" : "0.11"
+         }
+      },
+      "configure" : {
+         "requires" : {
+            "ExtUtils::MakeMaker" : "0"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : "0",
+            "Convert::ASN1" : "0.27",
+            "MIME::Base64" : "0",
+            "bytes" : "0",
+            "strict" : "0",
+            "warnings" : "0"
+         }
+      },
+      "test" : {
+         "requires" : {
+            "Test::More" : "0"
+         }
+      }
+   },
+   "release_status" : "stable",
+   "version" : "1.401"
+}
+

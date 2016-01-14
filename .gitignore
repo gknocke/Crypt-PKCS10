@@ -38,3 +38,10 @@ Icon
 .Spotlight-V100
 .Trashes
 
+# Distribution directories and tar files
+Crypt-PKCS10-*
+
+# Editor log files
+\#*#
+*.bak
+Commitlog

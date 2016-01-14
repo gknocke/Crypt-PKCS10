@@ -19,3 +19,22 @@ Revision history for perl module Crypt::PKCS10
 
  - Experimental Perl features removed
  - Refactored building process
+
+1.4_01 2016-01-14
+
+- Find PEM anywhere
+- Support repeated attributes
+- Various crashes, internal optimizations
+- More OIDs
+- Access methods: subject, subjectAltName, extensions,
+- Generate access methods for unknown OIDs in DNs at runtime
+- Add extractCSR method to get CSR in binary or PEM
+- subjectPublicKey option to extract in PEM format
+- Convert IP addresses to strings
+- Convert basicConstraints to string
+- Add registerOID to allow extraction of simple custom OIDs
+- More tests
+- Improve documentation
+- Add setAPIversion, regularize OID names in V1
+- Improve build: Use Dist::Zilla, autogenerate README,LICENE,META,Makefile.PL
+- Generate & ship Commitlog from git
