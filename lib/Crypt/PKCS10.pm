@@ -29,7 +29,7 @@ use MIME::Base64;
 
 our $VERSION = 1.4_01;
 
-my $apiVersion = 0;  # 0 for compatibility.  1 for prefered
+my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 
 # N.B. Names are exposed in the API.
 #      %shortnames follows & depends on (some) values.
@@ -200,7 +200,8 @@ sub __listOIDs {
 sub _listOIDs {
     my $class = shift;
 
-   $class-> __listOIDs( { %oids, %oid2extkeyusage } );
+    $class->setAPIversion(1);
+    $class-> __listOIDs( { %oids, %oid2extkeyusage } );
 
     return;
 }
@@ -227,6 +228,11 @@ sub setAPIversion {
 sub registerOID {
     my( $class, $oid, $longname, $shortname ) = @_;
 
+    unless( defined $apiVersion ) {
+	carp( "${class}::setAPIversion MUST be called before registerOID().  Defaulting to legacy mode\n" );
+	$class->setAPIversion(0);
+    }
+
     return exists $oids{$oid} if( @_ == 2 && defined $oid );
 
     croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
@@ -243,6 +249,11 @@ sub registerOID {
 sub new {
     my $class  = shift;
     my $der = shift;
+
+    unless( defined $apiVersion ) {
+	carp( "${class}::setAPIversion MUST be called before new().  Defaulting to legacy mode\n" );
+	$class->setAPIversion(0);
+    }
 
     my $parser;
 
@@ -827,6 +838,19 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 =begin readme pod
 
+=head1 RELEASE NOTES
+
+Version 1.4 has several API changes.  Most users should have a painless migration.
+
+ALL users must call Crypt::PKCS10->setAPIversion.  If not, a warning will be generated
+by the first class method called.  This warning will be made a fatal exception in a
+future release.
+
+Other than that requirement, the legacy mode is compatible with previous versions.
+
+Users are encouraged to migrate to the version 1 API.  It is much easier to use,
+and does not require the application to navigate internal data structures.
+
 =head1 INSTALLATION
     To install this module type the following:
 
@@ -876,7 +900,7 @@ If a name component exists in a CSR, the method will be present.  The converse i
 
 Selects the API version expected.
 
-Should be called before creating any objects.
+Must be called before calling any other method.
 
 =over 4
 
@@ -884,15 +908,17 @@ Should be called before creating any objects.
 
 Version 0 = Some OID names have spaces and descriptions - DEPRECATED
 
-This is the format used for Crypt::PKCS10 version 1.3 and lower.
+This is the format used for Crypt::PKCS10 version 1.3 and lower.  The attributes method returns legacy data.
 
 =item o
 
-Version 1 = OID names from RFCs - or at least compatible with OpenSSL and ASN.1 notation
+Version 1 = OID names from RFCs - or at least compatible with OpenSSL and ASN.1 notation.  The attributes method conforms to version 1.
 
 =back
 
-Currently, the default is version 0, but this will change to version 1 in a future release.
+If not called, a warning will be generated and the API will default to version 0.
+
+In a future release, the warning will be changed to a fatal exception.
 
 To ease migration, both old and new names are accepted by the API.
 
