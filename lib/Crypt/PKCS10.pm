@@ -680,21 +680,36 @@ sub signature {
     unpack('H*', $self->{'signature'}->[0]);
 }
 
+sub _attributes {
+    my $self = shift;
+
+    my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+    return undef unless( defined $attributes );
+
+    return { map { $_->{type} => $_->{values} } @$attributes };
+}
+
 sub attributes {
     my $self = shift;
     my( $name ) = @_;
 
-    my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
-    return () unless( defined $attributes );
-
     if( $apiVersion < 1 ) {
+	my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+	return () unless( defined $attributes );
+
 	my %hash = map { $_->{'type'} => $_->{'values'} }
 	  @{$attributes};
 	return %hash;
     }
 
+    my $attributes = $self->_attributes;
+    unless( defined $attributes ) {
+	return () if( wantarray );
+	return undef;
+    }
+
     unless( defined $name ) {
-	return map { $_->{type} } grep { $_->{type} ne 'extensionRequest' } @$attributes;
+	return grep { $_  ne 'extensionRequest' } keys %$attributes;
     }
 
     if( $name eq 'extensionRequest' ) { # Meaningless, and extensions/extensionValue handle
@@ -702,7 +717,7 @@ sub attributes {
 	return undef;
     }
 
-    my @attrs = grep { $_->{type} eq $name } @$attributes;
+    my @attrs = grep { $_ eq $name } keys %$attributes;
     unless( @attrs ) {
 	return () if( wantarray );
 	return undef;
@@ -710,7 +725,7 @@ sub attributes {
 
     my @values;
     foreach my $attr (@attrs) {
-	my $values = $attr->{values};
+	my $values = $attributes->{$attr};
 	$values = [ $values ] unless( ref $values eq 'ARRAY' );
 	my @value;
 	foreach my $value (@$values)  {
@@ -728,10 +743,10 @@ sub attributes {
 
 sub certificateTemplate {
     my $self = shift;
-    my %attributes = attributes($self);
+    my $attributes = $self->_attributes;
     my $template;
-    return undef unless( exists $attributes{'extensionRequest'} );
-    my @space = @{$attributes{'extensionRequest'}};
+    return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
+    my @space = @{$attributes->{extensionRequest}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq 'certificateTemplate') {
             $template = $entry->{'extnValue'};
@@ -743,10 +758,10 @@ sub certificateTemplate {
 sub extensions {
     my $self = shift;
 
-    my %attributes = attributes($self);
-    return () unless( exists $attributes{extensionRequest} );
+    my $attributes = $self->_attributes;
+    return () unless( defined $attributes && exists $attributes->{extensionRequest} );
 
-    my @present =  map { $_->{extnID} } @{$attributes{extensionRequest}};
+    my @present =  map { $_->{extnID} } @{$attributes->{extensionRequest}};
     if( $apiVersion >= 1 ) {
 	foreach my $ext (@present) {
 	    $ext = $variantNames{'$' . $ext} if( exists $variantNames{'$' . $ext} );
@@ -758,11 +773,11 @@ sub extensions {
 sub extensionValue {
     my $self = shift;
     my $extensionName = shift;
-    my %attributes = attributes($self);
+    my $attributes = $self->_attributes;
     my $value;
-    return undef unless( exists $attributes{'extensionRequest'} );
+    return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
-    my @space = @{$attributes{'extensionRequest'}};
+    my @space = @{$attributes->{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq $extensionName) {
             $value = $entry->{'extnValue'};
@@ -780,11 +795,11 @@ sub extensionValue {
 sub extensionPresent {
     my $self = shift;
     my $extensionName = shift;
-    my %attributes = attributes($self);
+    my $attributes = $self->_attributes;
     my $value;
-    return undef unless( exists $attributes{'extensionRequest'} );
+    return undef unless( defined $attributes && exists $attributes->{'extensionRequest'} );
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
-    my @space = @{$attributes{'extensionRequest'}};
+    my @space = @{$attributes->{'extensionRequest'}};
     foreach my $entry (@space) {
         if ($entry->{'extnID'} eq $extensionName) {
 	    return 2 if ($entry->{critical});
