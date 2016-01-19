@@ -62,7 +62,7 @@ METHODS
     If a name component exists in a CSR, the method will be present. The
     converse is not (always) true.
 
-  setAPIversion( $version )
+  class method setAPIversion( $version )
     Selects the API version expected.
 
     Must be called before calling any other method.
@@ -85,7 +85,7 @@ METHODS
 
     Every program should call setAPIversion(1).
 
-  new
+  class method new
     Constructor, creates a new object containing the parsed PKCS #10 request
     It takes the request itself as an argument. PEM and DER encoding is
     supported.
@@ -93,6 +93,11 @@ METHODS
     If PEM, other data (such as mail headers) may precede or follow the CSR.
 
         my $decoded = Crypt::PKCS10->new( $csr );
+
+  class method name2oid( $oid )
+    Returns the OID corresponding to a name returned by an access method.
+
+    Not in API v0;
 
   csrRequest( $format )
     Returns the binary (ASN.1) request (after conversion from PEM and
@@ -325,6 +330,16 @@ CHANGES
         - Generate & ship Commitlog from git
     
     1.4_02
+    
+    - For API V1, omit space in key usage list
+        - Look for policy identifier names in all tables
+        - Decode certificatePolicyIdentifier, add related OIDs
+        - Avoid building un-necessary ASN.1 parsers
+        - Fully decode ApplicationCertPolicies for API V1
+        - Check enhanced key usage before registering OID
+        - Add name2oid to API
+        - Internal cleanup  & error reporting improvements
+
     For detailed change listing, see Commitlog.
 
 AUTHORS

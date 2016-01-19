@@ -600,20 +600,21 @@ sub _mapExtensions {
 		    my $qid = $qualifier->{policyQualifierId};
 		    if( exists $oids{$qid} ) {
 			$qualifier->{policyQualifierId} = $oids{$qid};
-		    }elsif( exists $oids{$qid} ) {
+		    }elsif( exists $oid2extkeyusage{$qid} ) {
 			$qualifier->{policyQualifierId} = $oid2extkeyusage{$qid};
 		    }
-		    if( ref $qualifier->{qualifier} eq 'HASH' ) {
-			foreach my $qt (keys %{$qualifier->{qualifier}}) {
+		    my $qv = $qualifier->{qualifier};
+		    if( ref $qv eq 'HASH' ) {
+			foreach my $qt (keys %$qv) {
 			    if( $qt eq 'explicitText' ) {
-				$qualifier->{qualifier}{$qt} = (values %{$qualifier->{qualifier}{$qt}})[0];
+				$qv->{$qt} = (values %{$qv->{$qt}})[0];
 			    } elsif( $qt eq 'noticeRef' ) {
-				my $userNotice = $qualifier->{qualifier}{$qt};
+				my $userNotice = $qv->{$qt};
 				$userNotice->{organization} = (values %{$userNotice->{organization}})[0];
 			    }
 			}
-			$qualifier->{qualifier}{userNotice} = delete $qualifier->{qualifier}{noticeRef}
-			  if( exists $qualifier->{qualifier}{noticeRef} );
+			$qv->{userNotice} = delete $qv->{noticeRef}
+			  if( exists $qv->{noticeRef} );
 		    }
 		}
 	  }
