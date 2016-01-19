@@ -41,8 +41,8 @@
          }
       }
    },
-   "release_status" : "testing",
-   "version" : "1.401",
+   "release_status" : "stable",
+   "version" : "1.402",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"
@@ -347,7 +347,7 @@
       "zilla" : {
          "class" : "Dist::Zilla::Dist::Builder",
          "config" : {
-            "is_trial" : "1"
+            "is_trial" : "0"
          },
          "version" : "5.043"
       }

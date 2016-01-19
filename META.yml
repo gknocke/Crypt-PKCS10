@@ -22,7 +22,7 @@ requires:
   bytes: 0
   strict: 0
   warnings: 0
-version: 1.401
+version: 1.402
 x_Dist_Zilla:
   perl:
     version: 5.008008
@@ -261,5 +261,5 @@ x_Dist_Zilla:
   zilla:
     class: Dist::Zilla::Dist::Builder
     config:
-      is_trial: 1
+      is_trial: 0
     version: 5.043

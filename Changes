@@ -39,3 +39,15 @@ Revision history for perl module Crypt::PKCS10
 - For API V1, attributes method returns names or values of attributes (except extensions)
 - Improve build: Use Dist::Zilla, autogenerate README,LICENE,META,Makefile.PL
 - Generate & ship Commitlog from git
+
+1.4_02
+
+- For API V1, omit space in key usage list
+- Look for policy identifier names in all tables
+- Decode certificatePolicyIdentifier, add related OIDs
+- Avoid building un-necessary ASN.1 parsers
+- Fully decode ApplicationCertPolicies for API V1
+- Check enhanced key usage before registering OID
+- Add name2oid to API
+- Internal cleanup  & error reporting improvements
+

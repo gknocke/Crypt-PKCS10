@@ -27,7 +27,7 @@ use Carp;
 use Convert::ASN1;
 use MIME::Base64;
 
-our $VERSION = 1.4_01;
+our $VERSION = 1.4_02;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 
@@ -116,6 +116,10 @@ my %oids = (
     '2.5.4.65'                      => 'pseudonym',
     '2.5.4.5'                       => 'serialNumber',
     '2.5.4.9'                       => 'streetAddress',
+    '2.5.29.32'                     => 'certificatePolicies',
+    '2.5.29.32.0'                   => 'anyPolicy',
+    '1.3.6.1.5.5.7.2.1'             => 'CPS',
+    '1.3.6.1.5.5.7.2.2'             => 'userNotice',
 );
 
 my %variantNames;
@@ -152,6 +156,8 @@ my %shortnames = (
 		  surname                => 'SN',
 		  givenName              => 'GN',
 );
+
+my %name2oid;
 
 # For generating documentation, not part of API
 
@@ -218,8 +224,19 @@ sub setAPIversion {
     foreach (keys %variantNames) {
 	$oids{$_} = $variantNames{$_}[$version] if( /^\d/ ); # Map OID to selected name
     }
+    %name2oid = reverse (%oids, %oid2extkeyusage);
+
     return 1;
 }
+
+sub name2oid {
+    my $class = shift;
+    my( $oid ) = @_;
+
+    return undef unless( defined $oid && $apiVersion > 0 );
+    return $name2oid{$oid};
+}
+
 
 # registerOID( $oid ) => true if $oid is registered, false if not
 # registerOID( $oid, $longname ) => Register an OID with its name
@@ -233,11 +250,11 @@ sub registerOID {
 	$class->setAPIversion(0);
     }
 
-    return exists $oids{$oid} if( @_ == 2 && defined $oid );
+    return exists $oids{$oid} || exists $oid2extkeyusage{$oid} if( @_ == 2 && defined $oid );
 
     croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
     croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
-    croak( "$oid already registered" )       if( exists $oids{$oid} );
+    croak( "$oid already registered" )       if( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
     croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
     croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/, values %shortnames );
 
@@ -356,7 +373,7 @@ sub new {
     KeyUsage ::= BIT STRING
     netscapeCertType ::= BIT STRING
 
-    ApplicationCertPolicies ::= SEQUENCE OF PolicyInformation
+    ApplicationCertPolicies ::= SEQUENCE OF PolicyInformation -- Microsoft
 
     PolicyInformation ::= SEQUENCE {
         policyIdentifier   OBJECT IDENTIFIER,
@@ -365,6 +382,40 @@ sub new {
     PolicyQualifierInfo ::= SEQUENCE {
        policyQualifierId    OBJECT IDENTIFIER,
        qualifier            ANY}
+
+    certificatePolicies ::= SEQUENCE OF certPolicyInformation -- RFC 3280
+
+    certPolicyInformation ::= SEQUENCE {
+        policyIdentifier    CertPolicyId,
+        policyQualifier     SEQUENCE OF certPolicyQualifierInfo OPTIONAL}
+
+    CertPolicyId ::= OBJECT IDENTIFIER
+
+    certPolicyQualifierInfo ::= SEQUENCE {
+        policyQualifierId CertPolicyQualifierId,
+        qualifier         ANY DEFINED BY policyQualifierId}
+
+    CertPolicyQualifierId ::= OBJECT IDENTIFIER
+
+    CertPolicyQualifier ::= CHOICE {
+        cPSuri     CPSuri,
+        userNotice UserNotice }
+
+    CPSuri ::= IA5String
+
+    UserNotice ::= SEQUENCE {
+        noticeRef     NoticeReference OPTIONAL,
+        explicitText  DisplayText OPTIONAL}
+
+    NoticeReference ::= SEQUENCE {
+        organization     DisplayText,
+        noticeNumbers    SEQUENCE OF INTEGER }
+
+    DisplayText ::= CHOICE {
+        ia5String        IA5String,
+        visibleString    VisibleString,
+        bmpString        BMPString,
+        utf8String       UTF8String }
 
     unstructuredName ::= CHOICE {
         Ia5String       IA5String,
@@ -398,30 +449,33 @@ sub new {
         directoryString DirectoryString}
 ASN1
 
+    $asn->registertype( 'qualifier', '1.3.6.1.5.5.7.2.1', $self->_init('CPSuri') );
+    $asn->registertype( 'qualifier', '1.3.6.1.5.5.7.2.2', $self->_init('UserNotice') );
+
     $parser = $self->_init( 'CertificationRequest' );
 
     my $top =
 	$parser->decode($substr) or confess "decode: ", $parser->error, "Cannot handle input or missing ASN.1 definitons";
 
-    $self->{'certificationRequestInfo'}{'subject'}
-        = $self->_convert_rdn( $top->{'certificationRequestInfo'}{'subject'} );
+    $self->{certificationRequestInfo}{subject}
+        = $self->_convert_rdn( $top->{certificationRequestInfo}{subject} );
 
-    $self->{'certificationRequestInfo'}{'version'}
-        = $top->{'certificationRequestInfo'}{'version'};
+    $self->{certificationRequestInfo}{version}
+        = $top->{certificationRequestInfo}{version};
 
-    $self->{'certificationRequestInfo'}{'attributes'} = $self->_convert_attributes(
-        $top->{'certificationRequestInfo'}{'attributes'} );
+    $self->{certificationRequestInfo}{attributes} = $self->_convert_attributes(
+        $top->{certificationRequestInfo}{attributes} );
 
     $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
-      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{'certificationRequestInfo'}{'subjectPKInfo'} ) ) .
+      encode_base64( $parser->find('SubjectPublicKeyInfo')->encode( $top->{certificationRequestInfo}{subjectPKInfo} ) ) .
 	"-----END PUBLIC KEY-----\n";
-    $self->{'certificationRequestInfo'}{'subjectPKInfo'} = $self->_convert_pkinfo(
-        $top->{'certificationRequestInfo'}{'subjectPKInfo'} );
+    $self->{certificationRequestInfo}{subjectPKInfo} = $self->_convert_pkinfo(
+        $top->{certificationRequestInfo}{subjectPKInfo} );
 
-    $self->{'signature'} = $top->{'signature'};
+    $self->{signature} = $top->{signature};
 
-    $self->{'signatureAlgorithm'}
-        = $self->_convert_signatureAlgorithm( $top->{'signatureAlgorithm'} );
+    $self->{signatureAlgorithm}
+        = $self->_convert_signatureAlgorithm( $top->{signatureAlgorithm} );
 
     return $self;
 }
@@ -430,11 +484,11 @@ sub _convert_signatureAlgorithm {
     my $self = shift;
 
     my $signatureAlgorithm = shift;
-    $signatureAlgorithm->{'algorithm'}
-        = $oids{ $signatureAlgorithm->{'algorithm'}} if(defined $signatureAlgorithm->{'algorithm'});
+    $signatureAlgorithm->{algorithm}
+        = $oids{ $signatureAlgorithm->{algorithm}} if(defined $signatureAlgorithm->{algorithm});
 
-    if ($signatureAlgorithm->{'parameters'}{'undef'}) {
-        delete ($signatureAlgorithm->{'parameters'});
+    if ($signatureAlgorithm->{parameters}{undef}) {
+        delete ($signatureAlgorithm->{parameters});
     }
     return $signatureAlgorithm;
 }
@@ -444,10 +498,10 @@ sub _convert_pkinfo {
 
     my $pkinfo = shift;
 
-    $pkinfo->{'algorithm'}{'algorithm'}
-        = $oids{ $pkinfo->{'algorithm'}{'algorithm'}};
-    if ($pkinfo->{'algorithm'}{'parameters'}{'undef'}) {
-        delete ($pkinfo->{'algorithm'}{'parameters'});
+    $pkinfo->{algorithm}{algorithm}
+        = $oids{ $pkinfo->{algorithm}{algorithm}};
+    if ($pkinfo->{algorithm}{parameters}{undef}) {
+        delete ($pkinfo->{algorithm}{parameters});
     }
     return $pkinfo;
 }
@@ -462,14 +516,15 @@ sub _convert_attributes {
 	$name = $variantNames{$name} if( defined $name && exists $variantNames{$name} );
 	if (defined $name) {
             $entry->{type} = $name;
-            my $parser = $self->_init( $name ) or confess "Parser error: ", $name, " needs entry in ASN.1 definition";
 
             if ($name eq 'extensionRequest') {
-                $entry->{'values'} = $self->_convert_extensionRequest($entry->{'values'}[0]);
+                $entry->{values} = $self->_convert_extensionRequest($entry->{values}[0]);
             }
             else {
-                if($entry->{'values'}->[1]) {confess "Incomplete parsing of attribute type: ", $name;}
-                $entry->{'values'} = $parser->decode($entry->{'values'}->[0]) or confess "Looks like damaged input";
+		my $parser = $self->_init( $name );
+
+                if($entry->{values}[1]) {confess "Incomplete parsing of attribute type: ", $name;}
+                $entry->{values} = $parser->decode($entry->{values}[0]) or confess "Looks like damaged input";
             }
          }
     }
@@ -482,20 +537,21 @@ sub _convert_extensionRequest {
     my $extensionRequest = shift;
     my $parser = $self->_init('extensionRequest');
     my $decoded = $parser->decode($extensionRequest) or return [];
+
     foreach my $entry (@{$decoded}) {
-	my $name = $oids{ $entry->{'extnID'} };
+	my $name = $oids{ $entry->{extnID} };
 	$name = $variantNames{$name} if( defined $name && exists $variantNames{$name} );
         if (defined $name) {
 	    my $asnName = $name;
 	    $asnName =~ tr/ //d;
-            my $parser = $self->_init($asnName);
+            my $parser = $self->_init($asnName, 1);
             if(!$parser) {
                 $entry = undef;
                 next;
             }
-            $entry->{'extnID'} = $name;
-            $entry->{'extnValue'} = $parser->decode($entry->{'extnValue'}) or confess $parser->error, ".. looks like damaged input";
-            $entry->{'extnValue'} = $self->_mapExtensions($asnName, $entry->{'extnValue'});
+            $entry->{extnID} = $name;
+            my $dec = $parser->decode($entry->{extnValue}) or confess $parser->error, ".. looks like damaged input";
+            $entry->{extnValue} = $self->_mapExtensions($asnName, $dec);
         }
     }
     @{$decoded} = grep { defined } @{$decoded};
@@ -514,17 +570,54 @@ sub _mapExtensions {
 			      qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
 			      qw(client server email objsign reserved sslCA emailCA objCA) );
         my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
-        $value = join ", ", @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
+        $value = join( ($apiVersion >= 1? ',': ', '), @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ] ); #transfer bitmap to barewords
     } elsif ($id eq 'EnhancedKeyUsage') {
         foreach (@{$value}) {
             $_ = $oid2extkeyusage{$_} if(defined $oid2extkeyusage{$_});
         }
     } elsif ($id eq 'SubjectKeyIdentifier') {
         $value = (unpack "H*", $value);
-    } elsif ($id eq 'ApplicationCertPolicies') {
+    } elsif ($id eq 'ApplicationCertPolicies' && $apiVersion == 0) { # Minimal decode for v0
         foreach my $entry (@{$value}) {
-            $entry->{'policyIdentifier'} = $oid2extkeyusage{$entry->{'policyIdentifier'}} if(defined $oid2extkeyusage{$entry->{'policyIdentifier'}});
+	    my $polid = $entry->{policyIdentifier};
+	    if( exists $oid2extkeyusage{$polid} ) {
+		$entry->{policyIdentifier} = $oid2extkeyusage{$polid};
+	    } elsif( exists $oids{$polid} ) {
+		$entry->{policyIdentifier} = $oids{$polid};
+	    }
         }
+    } elsif( $id =~ /^(?:certificatePolicies|ApplicationCertPolicies)$/ ) { # Same encoding KB287547
+	foreach my $policy (@$value) {
+	    my $pid =  $policy->{policyIdentifier};
+	    if( exists $oids{$pid} ) {
+		$policy->{policyIdentifier} = $oids{$pid};
+	    }elsif( exists $oid2extkeyusage{$pid} ) {
+		$policy->{policyIdentifier} = $oid2extkeyusage{$pid};
+	    }
+
+	    if( exists $policy->{policyQualifier} ) {
+		foreach my $qualifier (@{$policy->{policyQualifier}}) {
+		    my $qid = $qualifier->{policyQualifierId};
+		    if( exists $oids{$qid} ) {
+			$qualifier->{policyQualifierId} = $oids{$qid};
+		    }elsif( exists $oids{$qid} ) {
+			$qualifier->{policyQualifierId} = $oid2extkeyusage{$qid};
+		    }
+		    if( ref $qualifier->{qualifier} eq 'HASH' ) {
+			foreach my $qt (keys %{$qualifier->{qualifier}}) {
+			    if( $qt eq 'explicitText' ) {
+				$qualifier->{qualifier}{$qt} = (values %{$qualifier->{qualifier}{$qt}})[0];
+			    } elsif( $qt eq 'noticeRef' ) {
+				my $userNotice = $qualifier->{qualifier}{$qt};
+				$userNotice->{organization} = (values %{$userNotice->{organization}})[0];
+			    }
+			}
+			$qualifier->{qualifier}{userNotice} = delete $qualifier->{qualifier}{noticeRef}
+			  if( exists $qualifier->{qualifier}{noticeRef} );
+		    }
+		}
+	  }
+      }
     } elsif( $id eq 'BasicConstraints' ) {
 	my $string = sprintf( 'CA:%s', ($value->{cA}? 'TRUE' : 'FALSE') );
 	$string .= sprintf( ',pathlen:%d', $value->{pathLenConstraint} ) if( exists $value->{pathLenConstraint} );
@@ -557,16 +650,16 @@ sub _convert_rdn {
 	    my $oid = $item->{type};
 	    my $name = (exists $variantNames{$oid})? $variantNames{$oid}[1]: $oids{ $oid };
 	    if( defined $name ) {
-		push @{$hash{$name}}, values %{$item->{'value'}};
-		push @{$hash{_subject}}, $name, [ values %{$item->{'value'}} ];
+		push @{$hash{$name}}, values %{$item->{value}};
+		push @{$hash{_subject}}, $name, [ values %{$item->{value}} ];
 		my @names = (exists $variantNames{$oid})? @{$variantNames{$oid}} : ( $name );
 		foreach my $name ( @names ) {
 		    unless( $self->can( $name ) ) {
 			no strict 'refs';
 			*$name =  sub {
 			    my $self = shift;
-			    return @{ $self->{'certificationRequestInfo'}{'subject'}{$name} } if( wantarray );
-			    return $self->{'certificationRequestInfo'}{'subject'}{$name}->[0] || '';
+			    return @{ $self->{certificationRequestInfo}{subject}{$name} } if( wantarray );
+			    return $self->{certificationRequestInfo}{subject}{$name}[0] || '';
 			}
 		    }
 		}
@@ -579,9 +672,13 @@ sub _convert_rdn {
 
 sub _init {
     my $self = shift;
-    my( $node ) = @_;
+    my( $node, $optional ) = @_;
 
     my $parsed = $self->{_asn}->find($node);
+
+    unless( defined $parsed || $optional ) {
+	croak( "Missing node $node in ASN.1\n" );
+    }
     return $parsed;
 }
 
@@ -607,8 +704,8 @@ foreach my $component (qw/commonName organizationalUnitName organizationName
     unless( defined &$component ) {
 	*$component = sub {
 	    my $self = shift;
-	    return @{ $self->{'certificationRequestInfo'}{'subject'}{$component} || [] } if( wantarray );
-	    return $self->{'certificationRequestInfo'}{'subject'}{$component}->[0] || '';
+	    return @{ $self->{certificationRequestInfo}{subject}{$component} || [] } if( wantarray );
+	    return $self->{certificationRequestInfo}{subject}{$component}[0] || '';
 	}
     }
 }
@@ -664,13 +761,13 @@ sub subjectAltName {
 
 sub version {
     my $self = shift;
-    my $v = $self->{'certificationRequestInfo'}{'version'};
+    my $v = $self->{certificationRequestInfo}{version};
     return sprintf( "v%u", $v+1 );
 }
 
 sub pkAlgorithm {
     my $self = shift;
-    return $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'algorithm'}{'algorithm'};
+    return $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{algorithm};
 }
 
 sub subjectPublicKey {
@@ -678,23 +775,23 @@ sub subjectPublicKey {
     my $format = shift;
 
     return $self->{_pubkey} if( $format );
-    return unpack('H*', $self->{'certificationRequestInfo'}{'subjectPKInfo'}{'subjectPublicKey'}->[0]);
+    return unpack('H*', $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0]);
 }
 
 sub signatureAlgorithm {
     my $self = shift;
-    return $self->{'signatureAlgorithm'}{'algorithm'};
+    return $self->{signatureAlgorithm}{algorithm};
 }
 
 sub signature {
     my $self = shift;
-    unpack('H*', $self->{'signature'}->[0]);
+    unpack('H*', $self->{signature}[0]);
 }
 
 sub _attributes {
     my $self = shift;
 
-    my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+    my $attributes = $self->{certificationRequestInfo}{attributes};
     return undef unless( defined $attributes );
 
     return { map { $_->{type} => $_->{values} } @$attributes };
@@ -705,10 +802,10 @@ sub attributes {
     my( $name ) = @_;
 
     if( $apiVersion < 1 ) {
-	my $attributes = $self->{'certificationRequestInfo'}{'attributes'};
+	my $attributes = $self->{certificationRequestInfo}{attributes};
 	return () unless( defined $attributes );
 
-	my %hash = map { $_->{'type'} => $_->{'values'} }
+	my %hash = map { $_->{type} => $_->{values} }
 	  @{$attributes};
 	return %hash;
     }
@@ -759,8 +856,8 @@ sub certificateTemplate {
     return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
     my @space = @{$attributes->{extensionRequest}};
     foreach my $entry (@space) {
-        if ($entry->{'extnID'} eq 'certificateTemplate') {
-            $template = $entry->{'extnValue'};
+        if ($entry->{extnID} eq 'certificateTemplate') {
+            $template = $entry->{extnValue};
         }
     }
     return $template;
@@ -788,10 +885,10 @@ sub extensionValue {
     my $value;
     return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
-    my @space = @{$attributes->{'extensionRequest'}};
+    my @space = @{$attributes->{extensionRequest}};
     foreach my $entry (@space) {
-        if ($entry->{'extnID'} eq $extensionName) {
-            $value = $entry->{'extnValue'};
+        if ($entry->{extnID} eq $extensionName) {
+            $value = $entry->{extnValue};
             # reduce the hash items to the scalar value #??
             while (ref $value eq 'HASH') {
                 my @keys = keys %{$value};
@@ -808,11 +905,11 @@ sub extensionPresent {
     my $extensionName = shift;
     my $attributes = $self->_attributes;
     my $value;
-    return undef unless( defined $attributes && exists $attributes->{'extensionRequest'} );
+    return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
-    my @space = @{$attributes->{'extensionRequest'}};
+    my @space = @{$attributes->{extensionRequest}};
     foreach my $entry (@space) {
-        if ($entry->{'extnID'} eq $extensionName) {
+        if ($entry->{extnID} eq $extensionName) {
 	    return 2 if ($entry->{critical});
 	    return 1;
         }
@@ -896,7 +993,7 @@ Access methods may exist for subject name components that are not listed here.  
 
 If a name component exists in a CSR, the method will be present.  The converse is not (always) true.
 
-=head2 setAPIversion( $version )
+=head2 class method setAPIversion( $version )
 
 Selects the API version expected.
 
@@ -926,7 +1023,7 @@ Every program should call setAPIversion(1).
 
 =cut
 
-=head2 new
+=head2 class method new
 
 Constructor, creates a new object containing the parsed PKCS #10 request
 It takes the request itself as an argument. PEM and DER encoding is supported.
@@ -934,6 +1031,12 @@ It takes the request itself as an argument. PEM and DER encoding is supported.
 If PEM, other data (such as mail headers) may precede or follow the CSR.
 
     my $decoded = Crypt::PKCS10->new( $csr );
+
+=head2 class method name2oid( $oid )
+
+Returns the OID corresponding to a name returned by an access method.
+
+Not in API v0;
 
 =head2 csrRequest( $format )
 
@@ -1114,7 +1217,7 @@ The following OID names are known (not all are extensions):
  -------------------------- -------------------------- ---------------------------
  0.9.2342.19200300.100.1.1  userID
  0.9.2342.19200300.100.1.25 domainComponent
- 1.2.840.10040.4.1          DSA
+ 1.2.840.10040.4.1          dsa                        (DSA)
  1.2.840.10040.4.3          dsaWithSha1                (DSA with SHA1)
  1.2.840.113549.1.1.1       rsaEncryption              (RSA encryption)
  1.2.840.113549.1.1.2       md2WithRSAEncryption       (MD2 with RSA encryption)
@@ -1142,6 +1245,8 @@ The following OID names are known (not all are extensions):
  1.3.6.1.4.1.311.21.10      ApplicationCertPolicies
  1.3.6.1.4.1.311.21.20      ClientInformation
  1.3.6.1.5.2.3.5            keyPurposeKdc              (KDC Authentication)
+ 1.3.6.1.5.5.7.2.1          CPS
+ 1.3.6.1.5.5.7.2.2          userNotice
  1.3.6.1.5.5.7.3.1          serverAuth
  1.3.6.1.5.5.7.3.2          clientAuth
  1.3.6.1.5.5.7.3.3          codeSigning
@@ -1181,6 +1286,8 @@ The following OID names are known (not all are extensions):
  2.5.29.15                  keyUsage                   (KeyUsage)
  2.5.29.17                  subjectAltName
  2.5.29.19                  basicConstraints           (Basic Constraints)
+ 2.5.29.32                  certificatePolicies
+ 2.5.29.32.0                anyPolicy
  2.5.29.37                  extKeyUsage                (EnhancedKeyUsage)
  2.16.840.1.101.3.4.2.1     sha256                     (SHA-256)
  2.16.840.1.113730.1.1      netscapeCertType

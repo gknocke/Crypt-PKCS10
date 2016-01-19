@@ -323,6 +323,8 @@ CHANGES
         - For API V1, attributes method returns names or values of attributes (except extensions)
         - Improve build: Use Dist::Zilla, autogenerate README,LICENE,META,Makefile.PL
         - Generate & ship Commitlog from git
+    
+    1.4_02
     For detailed change listing, see Commitlog.
 
 AUTHORS
