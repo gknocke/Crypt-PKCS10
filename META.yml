@@ -18,11 +18,13 @@ name: Crypt-PKCS10
 requires:
   Carp: 0
   Convert::ASN1: 0.27
+  Encode: 0
   MIME::Base64: 0
+  Scalar::Util: 0
   bytes: 0
   strict: 0
   warnings: 0
-version: 1.402
+version: 1.403
 x_Dist_Zilla:
   perl:
     version: 5.008008
@@ -261,5 +263,5 @@ x_Dist_Zilla:
   zilla:
     class: Dist::Zilla::Dist::Builder
     config:
-      is_trial: 1
+      is_trial: 0
     version: 5.043

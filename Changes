@@ -51,3 +51,14 @@ Revision history for perl module Crypt::PKCS10
 - Add name2oid to API
 - Internal cleanup  & error reporting improvements
 
+1.4_03
+
+- certificateTemplate ASN correction: MajorVersion is optional
+- certificateTemplate return id as a name if OID registered (API V1)
+- handle some malformed requests better
+- decode more M$ attributes, correct some.
+- Don't croak() on missing attributes
+- Convert BMPStrings from UCS2 to Perl (printable) strings
+- Rework special OID handling to be scalable & cover attributes
+- Don't croak in new.  (API V1) Always return undef.  Class method error() returns detail.
+- Return reasonable strings from attributes('name') and extensionValue('name',1)

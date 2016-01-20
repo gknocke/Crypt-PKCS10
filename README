@@ -14,6 +14,11 @@ RELEASE NOTES
     Other than that requirement, the legacy mode is compatible with previous
     versions.
 
+    new will no longer generate exceptions. undef is returned on all errors.
+    Use the error class method to retrieve the reason.
+
+    new will accept an open file handle in addition to a request.
+
     Users are encouraged to migrate to the version 1 API. It is much easier
     to use, and does not require the application to navigate internal data
     structures.
@@ -32,7 +37,7 @@ SYNOPSIS
         use Crypt::PKCS10;
 
         Crypt::PKCS10->setAPIversion( 1 );
-        my $decoded = Crypt::PKCS10->new( $csr );
+        my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
 
         my @names;
         @names = $decoded->extensionValue('subjectAltName' );
@@ -67,14 +72,15 @@ METHODS
 
     Must be called before calling any other method.
 
-    o   Version 0 = Some OID names have spaces and descriptions - DEPRECATED
+    Version 0
+        Some OID names have spaces and descriptions - DEPRECATED
 
         This is the format used for Crypt::PKCS10 version 1.3 and lower. The
         attributes method returns legacy data.
 
-    o   Version 1 = OID names from RFCs - or at least compatible with
-        OpenSSL and ASN.1 notation. The attributes method conforms to
-        version 1.
+    Version 1
+        OID names from RFCs - or at least compatible with OpenSSL and ASN.1
+        notation. The attributes method conforms to version 1.
 
     If not called, a warning will be generated and the API will default to
     version 0.
@@ -85,14 +91,40 @@ METHODS
 
     Every program should call setAPIversion(1).
 
-  class method new
-    Constructor, creates a new object containing the parsed PKCS #10 request
-    It takes the request itself as an argument. PEM and DER encoding is
-    supported.
+  class method new( $csr, %options )
+    Constructor, creates a new object containing the parsed PKCS #10
+    certificate request.
+
+    $csr may be a scalar containing the request, or a file handle from which
+    to read it.
+
+    If a file handle is supplied, the caller should specify binary => 1 if
+    the contents are DER.
+
+    The request may be PEM or binary DER encoded. Only one request is
+    processed.
 
     If PEM, other data (such as mail headers) may precede or follow the CSR.
 
-        my $decoded = Crypt::PKCS10->new( $csr );
+        my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
+
+    Returns undef if there is an I/O error or the request can not be parsed
+    successfully.
+
+    Call error() to obtain more detail.
+
+    options
+    binary
+        If true, the csr must be in DER format. binmode will be called on a
+        file handle.
+
+        If false, the csr is checked for a PEM certificate request. If not
+        found, the csr is assumed to be in DER format.
+
+    No exceptions are generated.
+
+  class method error
+    Returns a string describing the last error encountered;
 
   class method name2oid( $oid )
     Returns the OID corresponding to a name returned by an access method.
@@ -208,10 +240,15 @@ METHODS
     If no attributes are present, the empty list (undef in scalar context)
     is returned.
 
-    If $name is specified, the value of the extension is returned. (Only
-    string values are currently supported.) In scalar context, a single
-    string is returned with multiple values separated by ',' or '+'. In
-    array context, the value(s) are returned.
+    If $name is specified, the value of the extension is returned.
+
+    In scalar context, a single string is returned, which may include lists
+    and labels.
+
+      cspName="Microsoft Strong Cryptographic Provider",keySpec=2,signature=("",0)
+
+    In array context, the value(s) are returned as a list of items, which
+    may be references.
 
      print "$_: ", scalar $decoded->attributes($_), "\n"
                                          foreach ($decoded->attributes);
@@ -226,26 +263,25 @@ METHODS
     The values of extensions vary, however the following code fragment will
     dump most extensions and their value(s).
 
-     foreach my $ext ($decoded->extensions) {
-         my $val = $decoded->extensionValue($ext);
-         $val = join( ',', map { ref $_ eq 'HASH'?
-                      join( ':', (keys %$_)[0], (values %$_)[0] ): $_} @$val )
-                if( ref $val eq 'ARRAY' );
-         print( "$ext: ", $val, "\n" );
-     }
+     print "$_: ", $csr->extensionValue($_,1), "\n" foreach ($csr->extensions)
 
     The sample code fragment is not guaranteed to handle all cases.
-    Realistic code needs to select the extensions that it understands.
+    Production code needs to select the extensions that it understands and
+    should respect the 'critical' boolean. 'critical' can be obtained with
+    extensionPresent.
 
-  extensionValue
+  extensionValue( $format )
     Returns the value of an extension by name, e.g. extensionValue(
     'keyUsage' ). The name SHOULD be an API v1 name, but API v0 names are
     accepted for compatibility.
 
-    To interpret the value, you need to know the structure of the OID.
+    If $format is 1, the value is a formatted string, which may include
+    lists and labels.
 
-    Depending on the extension, the value may be a string, an array of
-    strings, or an array of hashes.
+    If $format is 0 or not defined, a string, or an array reference may be
+    returned. The array many contain any Perl variable type.
+
+    To interpret the value(s), you need to know the structure of the OID.
 
   extensionPresent
     Returns true if a named extension is present: If the extension is
@@ -339,7 +375,18 @@ CHANGES
         - Check enhanced key usage before registering OID
         - Add name2oid to API
         - Internal cleanup  & error reporting improvements
-
+    
+    1.4_03
+    
+    - certificateTemplate ASN correction: MajorVersion is optional
+        - certificateTemplate return id as a name if OID registered (API V1)
+        - handle some malformed requests better
+        - decode more M$ attributes, correct some.
+        - Don't croak() on missing attributes
+        - Convert BMPStrings from UCS2 to Perl (printable) strings
+        - Rework special OID handling to be scalable & cover attributes
+        - Don't croak in new.  (API V1) Always return undef.  Class method error() returns detail.
+        - Return reasonable strings from attributes('name') and extensionValue('name',1)
     For detailed change listing, see Commitlog.
 
 AUTHORS
