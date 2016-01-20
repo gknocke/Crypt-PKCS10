@@ -140,12 +140,41 @@ foreach (keys %oids) {
 }
 
 my %oid2extkeyusage = (
-                '1.3.6.1.5.5.7.3.1' => 'serverAuth',
-                '1.3.6.1.5.5.7.3.2' => 'clientAuth',
-                '1.3.6.1.5.5.7.3.3' => 'codeSigning',
-                '1.3.6.1.5.5.7.3.4' => 'emailProtection',
-                '1.3.6.1.5.5.7.3.8' => 'timeStamping',
-                '1.3.6.1.5.5.7.3.9' => 'OCSPSigning',
+                '1.3.6.1.5.5.7.3.1'        => 'serverAuth',
+                '1.3.6.1.5.5.7.3.2'        => 'clientAuth',
+                '1.3.6.1.5.5.7.3.3'        => 'codeSigning',
+                '1.3.6.1.5.5.7.3.4'        => 'emailProtection',
+                '1.3.6.1.5.5.7.3.8'        => 'timeStamping',
+                '1.3.6.1.5.5.7.3.9'        => 'OCSPSigning',
+
+		'1.3.6.1.5.5.7.3.21'       => 'sshClient',
+		'1.3.6.1.5.5.7.3.22'       => 'sshServer',
+
+		# Microsoft usages
+
+                '1.3.6.1.4.1.311.10.3.1'   => 'msCTLSign',
+                '1.3.6.1.4.1.311.10.3.2'   => 'msTimeStamping',
+                '1.3.6.1.4.1.311.10.3.3'   => 'msSGC',
+                '1.3.6.1.4.1.311.10.3.4'   => 'msEFS',
+                '1.3.6.1.4.1.311.10.3.4.1' => 'msEFSRecovery',
+                '1.3.6.1.4.1.311.10.3.5'   => 'msWHQLCrypto',
+                '1.3.6.1.4.1.311.10.3.6'   => 'msNT5Crypto',
+                '1.3.6.1.4.1.311.10.3.7'   => 'msOEMWHQLCrypto',
+                '1.3.6.1.4.1.311.10.3.8'   => 'msEmbeddedNTCrypto',
+                '1.3.6.1.4.1.311.10.3.9'   => 'msRootListSigner',
+                '1.3.6.1.4.1.311.10.3.10'  => 'msQualifiedSubordination',
+                '1.3.6.1.4.1.311.10.3.11'  => 'msKeyRecovery',
+                '1.3.6.1.4.1.311.10.3.12'  => 'msDocumentSigning',
+                '1.3.6.1.4.1.311.10.3.13'  => 'msLifetimeSigning',
+                '1.3.6.1.4.1.311.10.3.14'  => 'msMobileDeviceSoftware',
+
+                '1.3.6.1.4.1.311.2.1.21'   => 'msCodeInd',
+                '1.3.6.1.4.1.311.2.1.22'   => 'msCodeCom',
+                '1.3.6.1.4.1.311.20.2.2'   => 'msSmartCardLogon',
+
+
+	        # Netscape
+                '2.16.840.1.113730.4.1'    => 'nsSGC',
 );
 
 my %shortnames = (
