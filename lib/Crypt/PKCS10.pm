@@ -717,8 +717,12 @@ KeyUsage => sub {
 			   qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
 			   qw(client server email objsign reserved sslCA emailCA objCA) );
      my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
-     return join( ($apiVersion >= 1? ',': ', '),
-		  @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ] ); #transfer bitmap to barewords
+
+     @usages = @usages[ grep { $bit & (1 << $_ - $shift) } 0 .. $#usages ]; #transfer bitmap to barewords
+
+     return [ @usages ] if( $apiVersion >= 1 );
+
+     return join( ', ', @usages );
  },
 netscapeCertType => sub {
      goto &{$special{KeyUsage}};
@@ -1276,7 +1280,7 @@ sub _stringify {
     $string .= "     --None--" unless( $self->extensions );
 
     foreach ($self->extensions) {
-	my $critical = $self->extensionPresent($_) == 2? 'critical, ': '';
+	my $critical = $self->extensionPresent($_) == 2? 'critical,': '';
 
 	$string .= sprintf( "%-*s: %s\n", $max, $_,
 			    wrap( $max+2, $critical . ($_ eq 'subjectAltName'? scalar $self->subjectAltName: $self->extensionValue($_, 1) ) ) );
