@@ -879,7 +879,7 @@ sub _mapExtensions {
 sub _convert_rdn {
     my $self = shift;
     my $typeandvalue = shift;
-    my %hash;
+    my %hash = ( _subject => [], );
     foreach my $entry ( @$typeandvalue ) {
 	foreach my $item (@$entry) {
 	    my $oid = $item->{type};

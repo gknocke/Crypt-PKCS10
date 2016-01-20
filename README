@@ -415,6 +415,7 @@ CHANGES
         - Don't croak in new.  (API V1) Always return undef.  Class method error() returns detail.
         - Return reasonable strings from attributes('name') and extensionValue('name',1)
         - Overload object so print can produce a useful dump.
+        - Handle null subject
     For detailed change listing, see Commitlog.
 
 AUTHORS
