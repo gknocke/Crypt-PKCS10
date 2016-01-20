@@ -24,6 +24,8 @@ use strict;
 use warnings;
 use Carp;
 
+use overload( q("") => \&_stringify );
+
 use Convert::ASN1;
 use Encode ();
 use MIME::Base64;
@@ -314,12 +316,23 @@ sub error {
 
 sub _new {
     my $class  = shift;
-    my $der = shift;
-    my %options = @_;
+    my $der    = shift;
+    my %options = (
+		   acceptPEM     => 1,
+		   escapeStrings => 1,
+		   @_
+		  );
 
     unless( defined $apiVersion ) {
 	carp( "${class}::setAPIversion MUST be called before new().  Defaulting to legacy mode\n" );
 	$class->setAPIversion(0);
+    }
+
+    my $self = {};
+
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM)$/ } keys %options);
+    if( keys %options ) {
+	croak( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
 
     my $parser;
@@ -331,13 +344,13 @@ sub _new {
     if( Scalar::Util::openhandle( $der ) ) {
 	local $/;
 
-	binmode $der if( $options{binary} );
+	binmode $der unless( $self->{_acceptPEM} );
 
 	$der = <$der>;
 	croak( "Failed to read request: $!\n" ) unless( defined $der );
     }
 
-    if( !$options{binary} && $der =~ /^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms) { #if PEM, convert to DER
+    if( $self->{_acceptPEM} && $der =~ /^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms) { #if PEM, convert to DER
         $der = decode_base64($1);
     }
 
@@ -348,7 +361,8 @@ sub _new {
 	return substr( $der, 0, unpack("n*", substr($der, 2, 2)) + 4 );
     }; croak( "Invalid format for request\n" ) if( $@ );
 
-    my $self = { _der => $der };
+    $self->{_der} = $der;
+
     bless( $self, $class );
 
     $self->{_bmpenc} = Encode::find_encoding('UCS2-BE');
@@ -1088,7 +1102,9 @@ sub _hash2string {
     return $hash unless( ref $hash eq 'HASH' );
 
     my @keys = keys %$hash;
+
     @keys = grep { $_ !~ /$exclude/ } @keys if( defined $exclude );
+
     return $hash if( @keys != 1 );
 
     return $self->_hash2string( $hash->{$keys[0]} ) if( ref $hash->{$keys[0]} eq 'HASH' );
@@ -1118,10 +1134,15 @@ sub _value2strings {
 	return join( ',', @strings );
     }
 
-    # How should we handle embedded "?
+    return $value if( $value =~ /^\d+$/ );
 
-    return '"' . $value . '"' if( $value !~ /^\d+$/ );
-    return $value;
+    # OpenSSL and Perl-compatible string syntax
+
+    $value =~ s/(["\\\$])/\\$1/g if( $self->{_escapeStrings} );
+
+    return $value if( $value =~ m{\A[\w!$%^&*_=+\[\]\{\}:;|\\<>./?"'-]+\z} ); # Barewords
+
+    return '"' . $value . '"'; # Must quote: whitespace, non-printable, comma, (), null string
 }
 
 sub extensions {
@@ -1163,6 +1184,8 @@ sub extensionValue {
 	    last;
         }
     }
+    $value =~ s/^\((.*)\)$/$1/ if( $format );
+
     return $value;
 }
 
@@ -1182,6 +1205,64 @@ sub extensionPresent {
         }
     }
     return undef;
+}
+
+sub wrap {
+    my( $to, $text ) = @_;
+
+    my $wid = 76 - $to;
+
+    my $out = substr( $text, 0, $wid, '' );
+
+    while( length $text ) {
+	$out .= "\n" . (' ' x $to) . substr( $text, 0, $wid, '' );
+    }
+    return $out;
+}
+
+sub _stringify {
+    my $self = shift;
+
+    local $self->{_escapeStrings} = 0;
+
+    my $max = 0;
+    foreach ($self->attributes, $self->extensions, qw/Version Subject Key_algorithm Public_key Signature_algorithm Signature/) {
+	$max = length if( length > $max );
+    }
+
+    my $string = sprintf( "%-*s: %s\n", $max, 'Version', $self->version ) ;
+
+    $string .= sprintf( "%-*s: %s\n", $max, 'Subject', wrap( $max+2, scalar $self->subject ) );
+
+    $string .= "\n          --Attributes--\n";
+
+    $string .= "     --None--" unless( $self->attributes );
+
+    foreach ($self->attributes) {
+	$string .= sprintf( "%-*s: %s\n", $max, $_, wrap( $max+2, scalar $self->attributes($_) ) );
+    }
+
+    $string .= "\n          --Extensions--\n";
+
+    $string .= "     --None--" unless( $self->extensions );
+
+    foreach ($self->extensions) {
+	my $critical = $self->extensionPresent($_) == 2? 'critical, ': '';
+
+	$string .= sprintf( "%-*s: %s\n", $max, $_,
+			    wrap( $max+2, $critical . ($_ eq 'subjectAltName'? scalar $self->subjectAltName: $self->extensionValue($_, 1) ) ) );
+    }
+
+    $string .= "\n          --Key and signature--\n";
+    $string .= sprintf( "%-*s: %s\n", $max, 'Key algorithm', $self->pkAlgorithm );
+    $string .= sprintf( "%-*s: %s\n", $max, 'Public key', wrap( $max+2, $self->subjectPublicKey ) );
+    $string .= $self->subjectPublicKey(1);
+    $string .= sprintf( "%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
+    $string .= sprintf( "%-*s: %s\n", $max, 'Signature', wrap( $max+2, $self->signature ) );
+
+    $string .= "\n          --Request--\n" . $self->csrRequest(1);
+
+    return $string;
 }
 
 1;
@@ -1240,6 +1321,8 @@ Convert::ASN1
 
     Crypt::PKCS10->setAPIversion( 1 );
     my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
+
+    print $decoded;
 
     my @names;
     @names = $decoded->extensionValue('subjectAltName' );
@@ -1301,7 +1384,7 @@ Constructor, creates a new object containing the parsed PKCS #10 certificate req
 
 $csr may be a scalar containing the request, or a file handle from which to read it.
 
-If a file handle is supplied, the caller should specify binary => 1 if the contents are DER.
+If a file handle is supplied, the caller should specify acceptPEM => 0 if the contents are DER.
 
 The request may be PEM or binary DER encoded.  Only one request is processed.
 
@@ -1318,16 +1401,37 @@ Call error() to obtain more detail.
 
 =over 4
 
-=item binary
+=item acceptPEM
 
-If true, the csr must be in DER format.  binmode will be called on a file handle.
+If false, the input must be in DER format.  binmode will be called on a file handle.
 
-If false, the csr is checked for a PEM certificate request.  If not found, the csr
+If true, the input is checked for a PEM certificate request.  If not found, the csr
 is assumed to be in DER format.
+
+Default is true.
+
+=item escapeStrings
+
+If true, strings returned for extension and attribute values are '\'-escaped when formatted.
+This is compatible with OpenSSL configuration files.
+
+The special characters are: '\', '$', and '"'
+
+If false, these strings are not '\'-escaped.  This is useful when they are being displayed
+to a human.
+
+The default is true.
 
 =back
 
 No exceptions are generated.
+
+The object will stringify to a human-readable representation of the CSR.  This is
+useful for debugging and perhaps for displaying a request.  However, the format
+is not part of the API and may change.  It should not be parsed by automated tools.
+
+Exception: The public key and extracted request are PEM blocks, which other tools
+can extract.
 
 =head2 class method error
 
@@ -1461,10 +1565,12 @@ In scalar context, a single string is returned, which may include lists and labe
 
   cspName="Microsoft Strong Cryptographic Provider",keySpec=2,signature=("",0)
 
+Special characters are escaped as described in options.
+
 In array context, the value(s) are returned as a list of items, which may be references.
 
- print "$_: ", scalar $decoded->attributes($_), "\n"
-                                     foreach ($decoded->attributes);
+ print( " $_: ", scalar $decoded->attributes($_), "\n" )
+                                   foreach ($decoded->attributes);
 
 =head2 extensions
 
@@ -1487,6 +1593,7 @@ the 'critical' boolean.  'critical' can be obtained with extensionPresent.
 Returns the value of an extension by name, e.g. extensionValue( 'keyUsage' ).  The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
 
 If $format is 1, the value is a formatted string, which may include lists and labels.
+Special characters are escaped as described in options;
 
 If $format is 0 or not defined, a string, or an array reference may be returned.  
 The array many contain any Perl variable type.
@@ -1662,6 +1769,8 @@ works of Duncan Segrest's Crypt-X509-CRL module.
 =head1 COPYRIGHT
 
 This software is copyright (c) 2014 by Gideon Knocke.
+
+Changes in V1.4 are copyright (C) 2016, Timothe Litt
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.

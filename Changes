@@ -62,3 +62,4 @@ Revision history for perl module Crypt::PKCS10
 - Rework special OID handling to be scalable & cover attributes
 - Don't croak in new.  (API V1) Always return undef.  Class method error() returns detail.
 - Return reasonable strings from attributes('name') and extensionValue('name',1)
+- Overload object so print can produce a useful dump.
