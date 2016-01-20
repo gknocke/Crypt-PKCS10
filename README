@@ -39,6 +39,8 @@ SYNOPSIS
         Crypt::PKCS10->setAPIversion( 1 );
         my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
 
+        print $decoded;
+
         my @names;
         @names = $decoded->extensionValue('subjectAltName' );
         @names = $decoded->subject unless( @names );
@@ -98,8 +100,8 @@ METHODS
     $csr may be a scalar containing the request, or a file handle from which
     to read it.
 
-    If a file handle is supplied, the caller should specify binary => 1 if
-    the contents are DER.
+    If a file handle is supplied, the caller should specify acceptPEM => 0
+    if the contents are DER.
 
     The request may be PEM or binary DER encoded. Only one request is
     processed.
@@ -114,14 +116,36 @@ METHODS
     Call error() to obtain more detail.
 
     options
-    binary
-        If true, the csr must be in DER format. binmode will be called on a
-        file handle.
+    acceptPEM
+        If false, the input must be in DER format. binmode will be called on
+        a file handle.
 
-        If false, the csr is checked for a PEM certificate request. If not
+        If true, the input is checked for a PEM certificate request. If not
         found, the csr is assumed to be in DER format.
 
+        Default is true.
+
+    escapeStrings
+        If true, strings returned for extension and attribute values are
+        '\'-escaped when formatted. This is compatible with OpenSSL
+        configuration files.
+
+        The special characters are: '\', '$', and '"'
+
+        If false, these strings are not '\'-escaped. This is useful when
+        they are being displayed to a human.
+
+        The default is true.
+
     No exceptions are generated.
+
+    The object will stringify to a human-readable representation of the CSR.
+    This is useful for debugging and perhaps for displaying a request.
+    However, the format is not part of the API and may change. It should not
+    be parsed by automated tools.
+
+    Exception: The public key and extracted request are PEM blocks, which
+    other tools can extract.
 
   class method error
     Returns a string describing the last error encountered;
@@ -247,11 +271,13 @@ METHODS
 
       cspName="Microsoft Strong Cryptographic Provider",keySpec=2,signature=("",0)
 
+    Special characters are escaped as described in options.
+
     In array context, the value(s) are returned as a list of items, which
     may be references.
 
-     print "$_: ", scalar $decoded->attributes($_), "\n"
-                                         foreach ($decoded->attributes);
+     print( " $_: ", scalar $decoded->attributes($_), "\n" )
+                                       foreach ($decoded->attributes);
 
   extensions
     Returns an array containing the names of all extensions present in the
@@ -276,7 +302,8 @@ METHODS
     accepted for compatibility.
 
     If $format is 1, the value is a formatted string, which may include
-    lists and labels.
+    lists and labels. Special characters are escaped as described in
+    options;
 
     If $format is 0 or not defined, a string, or an array reference may be
     returned. The array many contain any Perl variable type.
@@ -387,6 +414,7 @@ CHANGES
         - Rework special OID handling to be scalable & cover attributes
         - Don't croak in new.  (API V1) Always return undef.  Class method error() returns detail.
         - Return reasonable strings from attributes('name') and extensionValue('name',1)
+        - Overload object so print can produce a useful dump.
     For detailed change listing, see Commitlog.
 
 AUTHORS
@@ -400,6 +428,8 @@ AUTHORS
 
 COPYRIGHT
     This software is copyright (c) 2014 by Gideon Knocke.
+
+    Changes in V1.4 are copyright (C) 2016, Timothe Litt
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.

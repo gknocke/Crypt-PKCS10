@@ -25,6 +25,7 @@ my %WriteMakefileArgs = (
     "MIME::Base64" => 0,
     "Scalar::Util" => 0,
     "bytes" => 0,
+    "overload" => 0,
     "strict" => 0,
     "warnings" => 0
   },
@@ -47,6 +48,7 @@ my %FallbackPrereqs = (
   "Scalar::Util" => 0,
   "Test::More" => 0,
   "bytes" => 0,
+  "overload" => 0,
   "strict" => 0,
   "warnings" => 0
 );
