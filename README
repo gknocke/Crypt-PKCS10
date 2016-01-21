@@ -14,8 +14,8 @@ RELEASE NOTES
     Other than that requirement, the legacy mode is compatible with previous
     versions.
 
-    new will no longer generate exceptions. undef is returned on all errors.
-    Use the error class method to retrieve the reason.
+    `new' will no longer generate exceptions. `undef' is returned on all
+    errors. Use the error class method to retrieve the reason.
 
     new will accept an open file handle in addition to a request.
 
@@ -41,14 +41,13 @@ SYNOPSIS
 
         print $decoded;
 
-        my @names;
         @names = $decoded->extensionValue('subjectAltName' );
         @names = $decoded->subject unless( @names );
 
-        my %extensions = map { $_ => $decoded->extensionValue( $_ ) } $decoded->extensions
+        %extensions = map { $_ => $decoded->extensionValue( $_ ) } $decoded->extensions
 
 DESCRIPTION
-    Crypt::PKCS10 parses PKCS #10 certificate requests (CSRs) and provides
+    `Crypt::PKCS10' parses PKCS #10 certificate requests (CSRs) and provides
     accessor methods to extract the data in usable form.
 
     Common object identifiers will be translated to their corresponding
@@ -70,15 +69,15 @@ METHODS
     converse is not (always) true.
 
   class method setAPIversion( $version )
-    Selects the API version expected.
+    Selects the API version (0 or 1) expected.
 
     Must be called before calling any other method.
 
-    Version 0
-        Some OID names have spaces and descriptions - DEPRECATED
+    Version 0 - DEPRECATED
+        Some OID names have spaces and descriptions
 
-        This is the format used for Crypt::PKCS10 version 1.3 and lower. The
-        attributes method returns legacy data.
+        This is the format used for `Crypt::PKCS10' version 1.3 and lower.
+        The attributes method returns legacy data.
 
     Version 1
         OID names from RFCs - or at least compatible with OpenSSL and ASN.1
@@ -91,16 +90,16 @@ METHODS
 
     To ease migration, both old and new names are accepted by the API.
 
-    Every program should call setAPIversion(1).
+    Every program should call `setAPIversion(1)'.
 
   class method new( $csr, %options )
     Constructor, creates a new object containing the parsed PKCS #10
     certificate request.
 
-    $csr may be a scalar containing the request, or a file handle from which
-    to read it.
+    `$csr' may be a scalar containing the request, or a file handle from
+    which to read it.
 
-    If a file handle is supplied, the caller should specify acceptPEM => 0
+    If a file handle is supplied, the caller should specify `acceptPEM => 0'
     if the contents are DER.
 
     The request may be PEM or binary DER encoded. Only one request is
@@ -110,15 +109,15 @@ METHODS
 
         my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
 
-    Returns undef if there is an I/O error or the request can not be parsed
-    successfully.
+    Returns `undef' if there is an I/O error or the request can not be
+    parsed successfully.
 
-    Call error() to obtain more detail.
+    Call `error()' to obtain more detail.
 
     options
     acceptPEM
-        If false, the input must be in DER format. binmode will be called on
-        a file handle.
+        If false, the input must be in DER format. `binmode' will be called
+        on a file handle.
 
         If true, the input is checked for a PEM certificate request. If not
         found, the csr is assumed to be in DER format.
@@ -163,20 +162,20 @@ METHODS
     binary string.
 
   Access methods for the subject's distinguished name
-    Note that subjectAltName is prefered, and modern certificate users will
-    ignore the subject if subjectAltName is present.
+    Note that subjectAltName is prefered, and that modern certificate users
+    will ignore the subject if subjectAltName is present.
 
-    subject(format)
+    subject( $format )
     Returns the entire subject of the CSR.
 
     In scalar context, returns the subject as a string in the form
-    /componentName=value,value. If format is true, long component names are
-    used. By default, abbreviations are used when known.
+    `/componentName=value,value'. If format is true, long component names
+    are used. By default, abbreviations are used when they exist.
 
       e.g. /countryName=AU/organizationalUnitName=Big org/organizationalUnitName=Smaller org
       or     /C=AU/OU=Big org/OU=Smaller org
 
-    In array context, returns an array of (componentName, [values]) pairs.
+    In array context, returns an array of `(componentName, [values])' pairs.
     Abbreviations are not used.
 
     Note that the order of components in a name is significant.
@@ -198,10 +197,10 @@ METHODS
     stateOrProvinceName
     Returns the state or province name(s) from the subject.
 
-  countryName
+    countryName
     Returns the country name(s) from the subject.
 
-  subjectAltName($type)
+  subjectAltName( $type )
     Convenience method.
 
     When $type is specified: returns the subject alternate name values of
@@ -225,8 +224,8 @@ METHODS
 
     The types marked with '*' are the most common.
 
-    If $type is not specified: In list context returns the types present in
-    the subjectAlternate name. In scalar context, returns the SAN as a
+    If `$type' is not specified: In list context returns the types present
+    in the subjectAlternate name. In scalar context, returns the SAN as a
     string.
 
   version
@@ -236,7 +235,7 @@ METHODS
     Returns the public key algorithm according to its object identifier.
 
   subjectPublicKey( $format )
-    If $format is true, the public key will be returned in PEM format.
+    If `$format' is true, the public key will be returned in PEM format.
 
     Otherwise, the public key will be returned in its hexadecimal
     representation
@@ -261,7 +260,7 @@ METHODS
     list does not include the requestedExtensions attribute. For that, use
     extensions();
 
-    If no attributes are present, the empty list (undef in scalar context)
+    If no attributes are present, the empty list (`undef' in scalar context)
     is returned.
 
     If $name is specified, the value of the extension is returned.
@@ -284,42 +283,42 @@ METHODS
     CSR. If no extensions are present, the empty list is returned.
 
     The names vary depending on the API version; however, the returned names
-    are acceptable to extensionValue and extensionPresent.
+    are acceptable to `extensionValue', `extensionPresent', and `name2oid'.
 
     The values of extensions vary, however the following code fragment will
     dump most extensions and their value(s).
 
-     print "$_: ", $csr->extensionValue($_,1), "\n" foreach ($csr->extensions)
+     print( "$_: ", $decoded->extensionValue($_,1), "\n" ) foreach ($decoded->extensions);
 
     The sample code fragment is not guaranteed to handle all cases.
     Production code needs to select the extensions that it understands and
-    should respect the 'critical' boolean. 'critical' can be obtained with
+    should respect the critical boolean. critical can be obtained with
     extensionPresent.
 
-  extensionValue( $format )
-    Returns the value of an extension by name, e.g. extensionValue(
-    'keyUsage' ). The name SHOULD be an API v1 name, but API v0 names are
+  extensionValue( $name, $format )
+    Returns the value of an extension by name, e.g. `extensionValue(
+    'keyUsage' )'. The name SHOULD be an API v1 name, but API v0 names are
     accepted for compatibility.
 
-    If $format is 1, the value is a formatted string, which may include
+    If `$format' is 1, the value is a formatted string, which may include
     lists and labels. Special characters are escaped as described in
     options;
 
-    If $format is 0 or not defined, a string, or an array reference may be
+    If `$format' is 0 or not defined, a string, or an array reference may be
     returned. The array many contain any Perl variable type.
 
     To interpret the value(s), you need to know the structure of the OID.
 
-  extensionPresent
+  extensionPresent( $name )
     Returns true if a named extension is present: If the extension is
-    'critical', returns 2. Otherwise, returns 1, indicating 'not critical',
-    but present.
+    critical, returns 2. Otherwise, returns 1, indicating not critical, but
+    present.
 
-    If the extension is not present, returns undef.
+    If the extension is not present, returns `undef'.
 
     See the module documentation for a list of known OID names.
 
-  registerOID
+  registerOID( )
     Class method.
 
     Register a custom OID, or a public OID that has not been added to
@@ -327,7 +326,7 @@ METHODS
 
     The OID may be an extension identifier or an RDN component.
 
-    The oid is specified as a string in numeric form, e.g. '1.2.3.4'
+    The oid is specified as a string in numeric form, e.g. `'1.2.3.4''
 
     registerOID( $oid )
     Returns true if the specified OID is registered, false otherwise.
@@ -340,16 +339,18 @@ METHODS
     Optionally, specify the short name used for extracting the subject. The
     short name should be upper-case (and will be upcased).
 
-    E.g. built-in are $oid => '2.4.5.3', $longname => 'commonName',
-    $shortname => 'CN'
+    E.g. built-in are `$oid => '2.4.5.3', $longname => 'commonName',
+    $shortname => 'CN''
 
     Generates an exception if any argument is not valid, or is in use.
 
     Returns true otherwise.
 
   certificateTemplate
-    CertificateTemplate is an attribute widely used by Windows certification
-    authorities.
+    `CertificateTemplate' returns the certificateTemplate attribute.
+
+    Equivalent to `extensionValue( 'certificateTemplate' )', which is
+    prefered.
 
 CHANGES
     1.0 2014-08-20
@@ -416,6 +417,9 @@ CHANGES
         - Return reasonable strings from attributes('name') and extensionValue('name',1)
         - Overload object so print can produce a useful dump.
         - Handle null subject
+        - More enhanced key usage OIDs
+        - keyUsage returns array rather than comma separated string (API v1)
+        - Cleaned up POD
     For detailed change listing, see Commitlog.
 
 AUTHORS
@@ -423,9 +427,9 @@ AUTHORS
 
     Timothe Litt made most of the changes for V1.4
 
-    Crypt::PKCS10 is based on the generic ASN.1 module by Graham Barr and on
-    the x509decode example by Norbert Klasen. It is also based upon the
-    works of Duncan Segrest's Crypt-X509-CRL module.
+    `Crypt::PKCS10' is based on the generic ASN.1 module by Graham Barr and
+    on the x509decode example by Norbert Klasen. It is also based upon the
+    works of Duncan Segrest's `Crypt-X509-CRL' module.
 
 COPYRIGHT
     This software is copyright (c) 2014 by Gideon Knocke.

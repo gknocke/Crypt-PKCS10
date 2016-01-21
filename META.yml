@@ -63,6 +63,7 @@ x_Dist_Zilla:
             - Makefile.PL
           exclude_match:
             - '\.bak$'
+            - '\.tmp$'
             - '^\#.*\#$'
             - '~$'
           follow_symlinks: 0

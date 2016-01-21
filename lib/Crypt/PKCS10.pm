@@ -1120,7 +1120,8 @@ sub attributes {
 
 sub certificateTemplate {
     my $self = shift;
-    return $self->extensionValue( 'certificateTemplate' );
+
+    return $self->extensionValue( 'certificateTemplate', @_ );
 }
 
 # If a hash contains one string (e.g. a CHOICE containing type=>value), return the string.
@@ -1240,7 +1241,7 @@ sub extensionPresent {
     return undef;
 }
 
-sub wrap {
+sub _wrap {
     my( $to, $text ) = @_;
 
     my $wid = 76 - $to;
@@ -1265,14 +1266,14 @@ sub _stringify {
 
     my $string = sprintf( "%-*s: %s\n", $max, 'Version', $self->version ) ;
 
-    $string .= sprintf( "%-*s: %s\n", $max, 'Subject', wrap( $max+2, scalar $self->subject ) );
+    $string .= sprintf( "%-*s: %s\n", $max, 'Subject', _wrap( $max+2, scalar $self->subject ) );
 
     $string .= "\n          --Attributes--\n";
 
     $string .= "     --None--" unless( $self->attributes );
 
     foreach ($self->attributes) {
-	$string .= sprintf( "%-*s: %s\n", $max, $_, wrap( $max+2, scalar $self->attributes($_) ) );
+	$string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, scalar $self->attributes($_) ) );
     }
 
     $string .= "\n          --Extensions--\n";
@@ -1283,15 +1284,15 @@ sub _stringify {
 	my $critical = $self->extensionPresent($_) == 2? 'critical,': '';
 
 	$string .= sprintf( "%-*s: %s\n", $max, $_,
-			    wrap( $max+2, $critical . ($_ eq 'subjectAltName'? scalar $self->subjectAltName: $self->extensionValue($_, 1) ) ) );
+			    _wrap( $max+2, $critical . ($_ eq 'subjectAltName'? scalar $self->subjectAltName: $self->extensionValue($_, 1) ) ) );
     }
 
     $string .= "\n          --Key and signature--\n";
     $string .= sprintf( "%-*s: %s\n", $max, 'Key algorithm', $self->pkAlgorithm );
-    $string .= sprintf( "%-*s: %s\n", $max, 'Public key', wrap( $max+2, $self->subjectPublicKey ) );
+    $string .= sprintf( "%-*s: %s\n", $max, 'Public key', _wrap( $max+2, $self->subjectPublicKey ) );
     $string .= $self->subjectPublicKey(1);
     $string .= sprintf( "%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
-    $string .= sprintf( "%-*s: %s\n", $max, 'Signature', wrap( $max+2, $self->signature ) );
+    $string .= sprintf( "%-*s: %s\n", $max, 'Signature', _wrap( $max+2, $self->signature ) );
 
     $string .= "\n          --Request--\n" . $self->csrRequest(1);
 
@@ -1326,7 +1327,7 @@ future release.
 
 Other than that requirement, the legacy mode is compatible with previous versions.
 
-new will no longer generate exceptions.  undef is returned on all errors. Use
+C<new> will no longer generate exceptions.  C<undef> is returned on all errors. Use
 the error class method to retrieve the reason.
 
 new will accept an open file handle in addition to a request.
@@ -1357,15 +1358,14 @@ Convert::ASN1
 
     print $decoded;
 
-    my @names;
     @names = $decoded->extensionValue('subjectAltName' );
     @names = $decoded->subject unless( @names );
 
-    my %extensions = map { $_ => $decoded->extensionValue( $_ ) } $decoded->extensions
+    %extensions = map { $_ => $decoded->extensionValue( $_ ) } $decoded->extensions
 
 =head1 DESCRIPTION
 
-Crypt::PKCS10 parses PKCS #10 certificate requests (CSRs) and provides accessor methods to extract the data in usable form.
+C<Crypt::PKCS10> parses PKCS #10 certificate requests (CSRs) and provides accessor methods to extract the data in usable form.
 
 Common object identifiers will be translated to their corresponding names.
 Additionally, accessor methods allow extraction of single data fields.
@@ -1383,17 +1383,17 @@ If a name component exists in a CSR, the method will be present.  The converse i
 
 =head2 class method setAPIversion( $version )
 
-Selects the API version expected.
+Selects the API version (0 or 1) expected.
 
 Must be called before calling any other method.
 
 =over 4
 
-=item Version 0
+=item Version 0 - B<DEPRECATED>
 
-Some OID names have spaces and descriptions - DEPRECATED
+Some OID names have spaces and descriptions
 
-This is the format used for Crypt::PKCS10 version 1.3 and lower.  The attributes method returns legacy data.
+This is the format used for C<Crypt::PKCS10> version 1.3 and lower.  The attributes method returns legacy data.
 
 =item Version 1
 
@@ -1407,7 +1407,7 @@ In a future release, the warning will be changed to a fatal exception.
 
 To ease migration, both old and new names are accepted by the API.
 
-Every program should call setAPIversion(1).
+Every program should call C<setAPIversion(1)>.
 
 =cut
 
@@ -1415,9 +1415,9 @@ Every program should call setAPIversion(1).
 
 Constructor, creates a new object containing the parsed PKCS #10 certificate request.
 
-$csr may be a scalar containing the request, or a file handle from which to read it.
+C<$csr> may be a scalar containing the request, or a file handle from which to read it.
 
-If a file handle is supplied, the caller should specify acceptPEM => 0 if the contents are DER.
+If a file handle is supplied, the caller should specify C<< acceptPEM => 0 >> if the contents are DER.
 
 The request may be PEM or binary DER encoded.  Only one request is processed.
 
@@ -1425,10 +1425,9 @@ If PEM, other data (such as mail headers) may precede or follow the CSR.
 
     my $decoded = Crypt::PKCS10->new( $csr ) or die Crypt::PKCS10->error;
 
+Returns C<undef> if there is an I/O error or the request can not be parsed successfully.
 
-Returns undef if there is an I/O error or the request can not be parsed successfully.
-
-Call error() to obtain more detail.
+Call C<error()> to obtain more detail.
 
 =head3 options
 
@@ -1436,24 +1435,24 @@ Call error() to obtain more detail.
 
 =item acceptPEM
 
-If false, the input must be in DER format.  binmode will be called on a file handle.
+If B<false>, the input must be in DER format.  C<binmode> will be called on a file handle.
 
-If true, the input is checked for a PEM certificate request.  If not found, the csr
+If B<true>, the input is checked for a PEM certificate request.  If not found, the csr
 is assumed to be in DER format.
 
-Default is true.
+Default is B<true>.
 
 =item escapeStrings
 
-If true, strings returned for extension and attribute values are '\'-escaped when formatted.
+If B<true>, strings returned for extension and attribute values are '\'-escaped when formatted.
 This is compatible with OpenSSL configuration files.
 
 The special characters are: '\', '$', and '"'
 
-If false, these strings are not '\'-escaped.  This is useful when they are being displayed
+If B<false>, these strings are not '\'-escaped.  This is useful when they are being displayed
 to a human.
 
-The default is true.
+The default is B<true>.
 
 =back
 
@@ -1480,23 +1479,23 @@ Not in API v0;
 
 Returns the binary (ASN.1) request (after conversion from PEM and removal of any data beyond the length of the ASN.1 structure.
 
-If $format is true, the request is returned as a PEM CSR.  Otherwise as a binary string.
+If $format is B<true>, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
 =head2 Access methods for the subject's distinguished name
 
-Note that subjectAltName is prefered, and modern certificate users will ignore the subject if subjectAltName is present.
+Note that B<subjectAltName> is prefered, and that modern certificate users will ignore the subject if B<subjectAltName> is present.
 
-=head3 subject(format)
+=head3 subject( $format )
 
 Returns the entire subject of the CSR.
 
-In scalar context, returns the subject as a string in the form /componentName=value,value.
-  If format is true, long component names are used.  By default, abbreviations are used when known.
+In scalar context, returns the subject as a string in the form C</componentName=value,value>.
+  If format is B<true>, long component names are used.  By default, abbreviations are used when they exist.
 
   e.g. /countryName=AU/organizationalUnitName=Big org/organizationalUnitName=Smaller org
   or     /C=AU/OU=Big org/OU=Smaller org
 
-In array context, returns an array of (componentName, [values]) pairs.  Abbreviations are not used.
+In array context, returns an array of C<(componentName, [values])> pairs.  Abbreviations are not used.
 
 Note that the order of components in a name is significant.
 
@@ -1522,18 +1521,18 @@ Returns the email address from the subject.
 
 Returns the state or province name(s) from the subject.
 
-=head2 countryName
+=head3 countryName
 
 Returns the country name(s) from the subject.
 
-=head2 subjectAltName($type)
+=head2 subjectAltName( $type )
 
 Convenience method.
 
 When $type is specified: returns the subject alternate name values of the specified type in list context, or the first value
 of the specified type in scalar context.
 
-Returns undefined/empty list if no values of the specified type are present, or if the subjectAltName
+Returns undefined/empty list if no values of the specified type are present, or if the B<subjectAltName>
 extension is not present.
 
 Types can be any of:
@@ -1550,7 +1549,7 @@ Types can be any of:
 
 The types marked with '*' are the most common.
 
-If $type is not specified:
+If C<$type> is not specified:
  In list context returns the types present in the subjectAlternate name.
  In scalar context, returns the SAN as a string.
 
@@ -1564,7 +1563,7 @@ Returns the public key algorithm according to its object identifier.
 
 =head2 subjectPublicKey( $format )
 
-If $format is true, the public key will be returned in PEM format.
+If C<$format> is B<true>, the public key will be returned in PEM format.
 
 Otherwise, the public key will be returned in its hexadecimal representation
 
@@ -1580,17 +1579,17 @@ The signature will be returned in its hexadecimal representation
 
 A request may contain a set of attributes. The attributes are OIDs with values.
 The most common is a list of requested extensions, but other OIDs can also
-occur.  Of those, challengePassword is typical.
+occur.  Of those, B<challengePassword> is typical.
 
 For API version 0, this method returns a hash consisting of all
-attributes in an internal format.  This usage is deprecated.
+attributes in an internal format.  This usage is B<deprecated>.
 
 For API version 1:
 
 If $name is not specified, a list of attribute names is returned.  The list does not
 include the requestedExtensions attribute.  For that, use extensions();
 
-If no attributes are present, the empty list (undef in scalar context) is returned.
+If no attributes are present, the empty list (C<undef> in scalar context) is returned.
 
 If $name is specified, the value of the extension is returned.
 
@@ -1610,36 +1609,36 @@ In array context, the value(s) are returned as a list of items, which may be ref
 Returns an array containing the names of all extensions present in the CSR.  If no extensions are present,
 the empty list is returned.
 
-The names vary depending on the API version; however, the returned names are acceptable to  extensionValue and extensionPresent.
+The names vary depending on the API version; however, the returned names are acceptable to C<extensionValue>, C<extensionPresent>, and C<name2oid>.
 
 The values of extensions vary, however the following code fragment will dump most extensions and their value(s).
 
- print "$_: ", $csr->extensionValue($_,1), "\n" foreach ($csr->extensions)
+ print( "$_: ", $decoded->extensionValue($_,1), "\n" ) foreach ($decoded->extensions);
 
 
 The sample code fragment is not guaranteed to handle all cases.
 Production code needs to select the extensions that it understands and should respect
-the 'critical' boolean.  'critical' can be obtained with extensionPresent.
+the B<critical> boolean.  B<critical> can be obtained with extensionPresent.
 
-=head2 extensionValue( $format )
+=head2 extensionValue( $name, $format )
 
-Returns the value of an extension by name, e.g. extensionValue( 'keyUsage' ).  The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
+Returns the value of an extension by name, e.g. C<extensionValue( 'keyUsage' )>.  The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
 
-If $format is 1, the value is a formatted string, which may include lists and labels.
+If C<$format> is 1, the value is a formatted string, which may include lists and labels.
 Special characters are escaped as described in options;
 
-If $format is 0 or not defined, a string, or an array reference may be returned.  
+If C<$format> is 0 or not defined, a string, or an array reference may be returned.
 The array many contain any Perl variable type.
 
 To interpret the value(s), you need to know the structure of the OID.
 
-=head2 extensionPresent
+=head2 extensionPresent( $name )
 
-Returns true if a named extension is present:
-    If the extension is 'critical', returns 2.
-    Otherwise, returns 1, indicating 'not critical', but present.
+Returns B<true> if a named extension is present:
+    If the extension is B<critical>, returns 2.
+    Otherwise, returns 1, indicating B<not critical>, but present.
 
-If the extension is not present, returns undef.
+If the extension is not present, returns C<undef>.
 
 =begin readme pod
 
@@ -1681,11 +1680,29 @@ The following OID names are known (not all are extensions):
  1.2.840.113549.1.9.14      extensionRequest
  1.2.840.113549.1.9.15      smimeCapabilities          (SMIMECapabilities)
  1.3.6.1.4.1.311.2.1.14     CERT_EXTENSIONS
+ 1.3.6.1.4.1.311.2.1.21     msCodeInd
+ 1.3.6.1.4.1.311.2.1.22     msCodeCom
+ 1.3.6.1.4.1.311.10.3.1     msCTLSign
+ 1.3.6.1.4.1.311.10.3.2     msTimeStamping
+ 1.3.6.1.4.1.311.10.3.3     msSGC
+ 1.3.6.1.4.1.311.10.3.4     msEFS
+ 1.3.6.1.4.1.311.10.3.4.1   msEFSRecovery
+ 1.3.6.1.4.1.311.10.3.5     msWHQLCrypto
+ 1.3.6.1.4.1.311.10.3.6     msNT5Crypto
+ 1.3.6.1.4.1.311.10.3.7     msOEMWHQLCrypto
+ 1.3.6.1.4.1.311.10.3.8     msEmbeddedNTCrypto
+ 1.3.6.1.4.1.311.10.3.9     msRootListSigner
+ 1.3.6.1.4.1.311.10.3.10    msQualifiedSubordination
+ 1.3.6.1.4.1.311.10.3.11    msKeyRecovery
+ 1.3.6.1.4.1.311.10.3.12    msDocumentSigning
+ 1.3.6.1.4.1.311.10.3.13    msLifetimeSigning
+ 1.3.6.1.4.1.311.10.3.14    msMobileDeviceSoftware
  1.3.6.1.4.1.311.13.1       RENEWAL_CERTIFICATE
  1.3.6.1.4.1.311.13.2.1     ENROLLMENT_NAME_VALUE_PAIR
  1.3.6.1.4.1.311.13.2.2     ENROLLMENT_CSP_PROVIDER
  1.3.6.1.4.1.311.13.2.3     OS_Version
  1.3.6.1.4.1.311.20.2       certificateTemplateName
+ 1.3.6.1.4.1.311.20.2.2     msSmartCardLogon
  1.3.6.1.4.1.311.21.7       certificateTemplate
  1.3.6.1.4.1.311.21.10      ApplicationCertPolicies
  1.3.6.1.4.1.311.21.20      ClientInformation
@@ -1698,6 +1715,8 @@ The following OID names are known (not all are extensions):
  1.3.6.1.5.5.7.3.4          emailProtection
  1.3.6.1.5.5.7.3.8          timeStamping
  1.3.6.1.5.5.7.3.9          OCSPSigning
+ 1.3.6.1.5.5.7.3.21         sshClient
+ 1.3.6.1.5.5.7.3.22         sshServer
  1.3.6.1.5.5.7.9.5          countryOfResidence
  1.3.14.3.2.29              sha1WithRSAEncryption      (SHA1 with RSA signature)
  2.5.4.3                    commonName
@@ -1742,10 +1761,11 @@ The following OID names are known (not all are extensions):
  2.16.840.1.113730.1.8      netscapeCaPolicyUrl
  2.16.840.1.113730.1.12     netscapeSSLServerName
  2.16.840.1.113730.1.13     netscapeComment
+ 2.16.840.1.113730.4.1      nsSGC
 
 =for readme continue
 
-=head2 registerOID
+=head2 registerOID( )
 
 Class method.
 
@@ -1753,31 +1773,33 @@ Register a custom OID, or a public OID that has not been added to Crypt::PKCS10 
 
 The OID may be an extension identifier or an RDN component.
 
-The oid is specified as a string in numeric form, e.g. '1.2.3.4'
+The oid is specified as a string in numeric form, e.g. C<'1.2.3.4'>
 
 =head3 registerOID( $oid )
 
-Returns true if the specified OID is registered, false otherwise.
+Returns B<true> if the specified OID is registered, B<false> otherwise.
 
 =head3 registerOID( $oid, $longname, $shortname )
 
 Registers the specified OID with the associated long name.
-The long name should be Hungarian case (commonName), but this is not currently
+The long name should be Hungarian case (B<commonName>), but this is not currently
 enforced.
 
 Optionally, specify the short name used for extracting the subject.
 The short name should be upper-case (and will be upcased).
 
-E.g. built-in are $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN'
+E.g. built-in are C<< $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN' >>
 
 
 Generates an exception if any argument is not valid, or is in use.
 
-Returns true otherwise.
+Returns B<true> otherwise.
 
 =head2 certificateTemplate
 
-CertificateTemplate is an attribute widely used by Windows certification authorities.
+C<CertificateTemplate> returns the B<certificateTemplate> attribute.
+
+Equivalent to C<extensionValue( 'certificateTemplate' )>, which is prefered.
 
 =begin readme pod
 
@@ -1795,9 +1817,9 @@ Gideon Knocke
 
 Timothe Litt made most of the changes for V1.4
 
-Crypt::PKCS10 is based on the generic ASN.1 module by Graham Barr and on the
+C<Crypt::PKCS10> is based on the generic ASN.1 module by Graham Barr and on the
  x509decode example by Norbert Klasen. It is also based upon the
-works of Duncan Segrest's Crypt-X509-CRL module.
+works of Duncan Segrest's C<Crypt-X509-CRL> module.
 
 =head1 COPYRIGHT
 

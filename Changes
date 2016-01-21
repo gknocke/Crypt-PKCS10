@@ -65,3 +65,5 @@ Revision history for perl module Crypt::PKCS10
 - Overload object so print can produce a useful dump.
 - Handle null subject
 - More enhanced key usage OIDs
+- keyUsage returns array rather than comma separated string (API v1)
+- Cleaned up POD
