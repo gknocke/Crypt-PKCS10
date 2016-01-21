@@ -361,14 +361,14 @@ sub _new {
 
     $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM)$/ } keys %options);
     if( keys %options ) {
-	croak( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
+	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
 
     my $parser;
 
-    #malformed requests can produce various warnings; don't proceed in that case.
+    # malformed requests can produce various warnings; don't proceed in that case.
 
-    local $SIG{__WARN__} = sub { croak @_ };
+    local $SIG{__WARN__} = sub { my $msg = $_[0]; $msg =~ s/\A(.*?) at .*\Z/$1/s; chomp $msg; die "$msg\n" };
 
     if( Scalar::Util::openhandle( $der ) ) {
 	local $/;
@@ -379,8 +379,19 @@ sub _new {
 	croak( "Failed to read request: $!\n" ) unless( defined $der );
     }
 
-    if( $self->{_acceptPEM} && $der =~ /^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s(.*)\s-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms) { #if PEM, convert to DER
-        $der = decode_base64($1);
+    if( $self->{_acceptPEM} && $der =~         # if PEM, convert to DER
+	/^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s+(.*?)\s*^-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms ) {
+	$der = $1;
+
+	# Some versions of MIME::Base64 check the input.  Some don't.  Those that do
+	# seem to obey -w, but not 'use warnings'.  So we'll check here.
+
+	$der =~ s/\s+//g; # Delete whitespace, which is legal but meaningless
+
+	unless( $der =~ m{\A[A-Za-z0-9+/]+={0,2}\z} && ( length( $der ) % 4 == 0 ) ) {
+	    warn( "Invalid base64 encoding\n" ); # Invalid character or length
+	}
+        $der = decode_base64( $der );
     }
 
     #some Requests may contain information outside of the regular ASN.1 structure. These parts need to be stripped off
@@ -707,7 +718,7 @@ my %special;
      }
      return $value;
  },
-KeyUsage => sub {
+ KeyUsage => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -724,16 +735,16 @@ KeyUsage => sub {
 
      return join( ', ', @usages );
  },
-netscapeCertType => sub {
+ netscapeCertType => sub {
      goto &{$special{KeyUsage}};
  },
-SubjectKeyIdentifier => sub {
+ SubjectKeyIdentifier => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
      return unpack( "H*", $value );
  },
-ApplicationCertPolicies => sub {
+ ApplicationCertPolicies => sub {
      goto &{$special{certificatePolicies}} if( $apiVersion > 0 );
 
      my $self = shift;
@@ -745,14 +756,14 @@ ApplicationCertPolicies => sub {
 
      return $value;
  },
-certificateTemplate => sub {
+ certificateTemplate => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
      $value->{templateID} = $self->_oid2name( $value->{templateID} ) if( $apiVersion > 0 );
      return $value;
  },
-ENROLLMENT_NAME_VALUE_PAIR => sub {
+ ENROLLMENT_NAME_VALUE_PAIR => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -760,7 +771,7 @@ ENROLLMENT_NAME_VALUE_PAIR => sub {
 
      return $value;
  },
-EnrollmentCSP => sub {
+ EnrollmentCSP => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -768,7 +779,7 @@ EnrollmentCSP => sub {
 
      return $value;
  },
-ENROLLMENT_CSP_PROVIDER => sub {
+ ENROLLMENT_CSP_PROVIDER => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -776,7 +787,7 @@ ENROLLMENT_CSP_PROVIDER => sub {
 
      return $value;
  },
-certificatePolicies => sub {
+ certificatePolicies => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -803,27 +814,35 @@ certificatePolicies => sub {
      }
      return $value;
  },
-CERT_EXTENSIONS => sub {
+ CERT_EXTENSIONS => sub {
      my $self = shift;
-     my( $value, $id ) = @_;
+     my( $value, $id, $entry ) = @_;
 
      return $self->_convert_extensionRequest( [ $value ] ) if( $apiVersion > 0 ); # Untested
  },
-BasicConstraints => sub {
+ BasicConstraints => sub {
      my $self = shift;
-     my( $value, $id ) = @_;
+     my( $value, $id, $entry ) = @_;
 
-     my $string = sprintf( 'CA:%s', ($value->{cA}? 'TRUE' : 'FALSE') );
-     $string .= sprintf( ',pathlen:%d', $value->{pathLenConstraint} ) if( exists $value->{pathLenConstraint} );
-     return $string;
+     my $r = {
+	      CA => $value->{cA}? 'TRUE' : 'FALSE',
+	     };
+     my $string = "CA:$r->{CA}";
+
+     if( exists $value->{pathLenConstraint} ) {
+	 $r->{pathlen} = $value->{pathLenConstraint};
+	 $string .= sprintf( ',pathlen:%u', $value->{pathLenConstraint} );
+     }
+     $entry->{_FMT} = [ $r, $string ]; # [ Raw, formatted ]
+     return $value;
  },
-unstructuredName => sub {
+ unstructuredName => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
      return $self->_hash2string( $value );
  },
-challengePassword => sub {
+ challengePassword => sub {
      my $self = shift;
      my( $value, $id ) = @_;
 
@@ -852,12 +871,12 @@ sub _convert_attributes {
 	    if($entry->{values}[1]) {
 		confess( "Incomplete parsing of attribute type: $name" );
 	    }
-	    my $value = $entry->{values} = $parser->decode($entry->{values}[0]) or
-	      confess( "Looks like damaged input parsing $name" );
+	    my $value = $entry->{values} = $parser->decode( $entry->{values}[0] ) or
+	      confess( "Looks like damaged input parsing attribute $name" );
 
 	    if( exists $special{$name} ) {
 		my $action = $special{$name};
-		$entry->{values} = $action->($self, $value, $name );
+		$entry->{values} = $action->( $self, $value, $name, $entry );
 	    }
 	}
     }
@@ -884,30 +903,20 @@ sub _convert_extensionRequest {
             }
             $entry->{extnID} = $name;
             my $dec = $parser->decode($entry->{extnValue}) or
-	      confess( $parser->error . ".. looks like damaged input parsing $asnName" );
+	      confess( $parser->error . ".. looks like damaged input parsing extension $asnName" );
 
-            $entry->{extnValue} = $self->_mapExtensions($asnName, $dec);
+	    $self->_scanvalue( $dec );
+
+	    if( exists $special{$asnName} ) {
+		my $action = $special{$asnName};
+		$dec = $action->( $self, $dec, $asnName, $entry );
+	    }
+	    $entry->{extnValue} = $dec;
         }
     }
     @{$decoded} = grep { defined } @{$decoded};
     return $decoded;
 }
-
-sub _mapExtensions {
-    my $self = shift;
-
-    my( $id, $value ) = @_;
-
-    $self->_scanvalue( $value );
-
-    if( exists $special{$id} ) {
-	my $action = $special{$id};
-	$value = $action->($self, $value, $id );
-    }
-
-    return $value
-}
-
 
 sub _convert_rdn {
     my $self = shift;
@@ -1174,9 +1183,9 @@ sub _value2strings {
 
     $value =~ s/(["\\\$])/\\$1/g if( $self->{_escapeStrings} );
 
-    return $value if( $value =~ m{\A[\w!$%^&*_=+\[\]\{\}:;|\\<>./?"'-]+\z} ); # Barewords
+    return $value if( $value =~ m{\A[\w!\@$%^&*_=+\[\]\{\}:;|<>./?"'-]+\z} ); # Barewords
 
-    return '"' . $value . '"'; # Must quote: whitespace, non-printable, comma, (), null string
+    return '"' . $value . '"'; # Must quote: whitespace, non-printable, comma, (), \, null string
 }
 
 sub extensions {
@@ -1212,8 +1221,12 @@ sub extensionValue {
 		    $value = $value->{ shift @keys } ;
 		}
 	    } else {
-		$value = $self->_hash2string( $value, '(?i:^(?:critical|.*id)$)' );
-		$value = $self->_value2strings( $value ) if( $format );
+		if( $entry->{_FMT} ) { # Special formatting
+		    $value = $entry->{_FMT}[$format? 1:0];
+		} else {
+		    $value = $self->_hash2string( $value, '(?i:^(?:critical|.*id)$)' );
+		    $value = $self->_value2strings( $value ) if( $format );
+		}
 	    }
 	    last;
         }

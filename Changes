@@ -67,3 +67,9 @@ Revision history for perl module Crypt::PKCS10
 - More enhanced key usage OIDs
 - keyUsage returns array rather than comma separated string (API v1)
 - Cleaned up POD
+- Do a better job with error reporting
+- Validate PEM's Base64 encoding.
+- Ensure that only the first PEM certificate is extracted.
+- Improve tests
+- Enable (internal) custom formatters for extensions and attributes.
+- Return basicConstraints as a hash

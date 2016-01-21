@@ -11,3 +11,6 @@ README
 dist.ini
 lib/Crypt/PKCS10.pm
 t/00_base.t
+t/csr1.cer
+t/csr1.pem
+t/csr2.pem

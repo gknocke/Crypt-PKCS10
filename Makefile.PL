@@ -30,6 +30,8 @@ my %WriteMakefileArgs = (
     "warnings" => 0
   },
   "TEST_REQUIRES" => {
+    "File::Basename" => 0,
+    "File::Spec" => 0,
     "Test::More" => 0
   },
   "VERSION" => "1.403",
@@ -43,6 +45,8 @@ my %FallbackPrereqs = (
   "Carp" => 0,
   "Convert::ASN1" => "0.27",
   "Encode" => 0,
+  "File::Basename" => 0,
+  "File::Spec" => 0,
   "MIME::Base64" => 0,
   "Pod::Readme" => "0.11",
   "Scalar::Util" => 0,

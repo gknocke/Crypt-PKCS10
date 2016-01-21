@@ -4,6 +4,8 @@ author:
   - 'Gideon Knocke <gknocke@cpan.org>'
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
+  File::Basename: 0
+  File::Spec: 0
   Pod::Readme: 0.11
   Test::More: 0
 configure_requires:
@@ -44,6 +46,10 @@ x_Dist_Zilla:
       name: Run::BeforeBuild
       version: 0.042
     -
+      class: Dist::Zilla::Plugin::Encoding
+      name: Encoding
+      version: 5.043
+    -
       class: Dist::Zilla::Plugin::VersionFromModule
       name: VersionFromModule
       version: 0.08
@@ -62,9 +68,9 @@ x_Dist_Zilla:
             - META.yml
             - Makefile.PL
           exclude_match:
+            - '\#.*\#$'
             - '\.bak$'
             - '\.tmp$'
-            - '^\#.*\#$'
             - '~$'
           follow_symlinks: 0
           include_dotfiles: 0
