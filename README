@@ -263,7 +263,8 @@ METHODS
     If no attributes are present, the empty list (`undef' in scalar context)
     is returned.
 
-    If $name is specified, the value of the extension is returned.
+    If $name is specified, the value of the extension is returned. $name can
+    be specified as a numeric OID.
 
     In scalar context, a single string is returned, which may include lists
     and labels.
@@ -277,6 +278,8 @@ METHODS
 
      print( " $_: ", scalar $decoded->attributes($_), "\n" )
                                        foreach ($decoded->attributes);
+
+    See the module documentation for a list of known OID names.
 
   extensions
     Returns an array containing the names of all extensions present in the
@@ -298,7 +301,8 @@ METHODS
   extensionValue( $name, $format )
     Returns the value of an extension by name, e.g. `extensionValue(
     'keyUsage' )'. The name SHOULD be an API v1 name, but API v0 names are
-    accepted for compatibility.
+    accepted for compatibility. The name can also be specified as a numeric
+    OID.
 
     If `$format' is 1, the value is a formatted string, which may include
     lists and labels. Special characters are escaped as described in
@@ -309,12 +313,16 @@ METHODS
 
     To interpret the value(s), you need to know the structure of the OID.
 
+    See the module documentation for a list of known OID names.
+
   extensionPresent( $name )
     Returns true if a named extension is present: If the extension is
     critical, returns 2. Otherwise, returns 1, indicating not critical, but
     present.
 
     If the extension is not present, returns `undef'.
+
+    The name can also be specified as a numeric OID.
 
     See the module documentation for a list of known OID names.
 
@@ -332,9 +340,11 @@ METHODS
     Returns true if the specified OID is registered, false otherwise.
 
     registerOID( $oid, $longname, $shortname )
-    Registers the specified OID with the associated long name. The long name
-    should be Hungarian case (commonName), but this is not currently
-    enforced.
+    Registers the specified OID with the associated long name. This enables
+    the OID to be translated to a name in output.
+
+    The long name should be Hungarian case (commonName), but this is not
+    currently enforced.
 
     Optionally, specify the short name used for extracting the subject. The
     short name should be upper-case (and will be upcased).
@@ -426,7 +436,24 @@ CHANGES
         - Improve tests
         - Enable (internal) custom formatters for extensions and attributes.
         - Return basicConstraints as a hash
-    For detailed change listing, see Commitlog.
+        - Accept numeric OIDs as arguments to extensionValue, extensionPresent and attributes.
+
+    For a more detailed list of changes, see Commitlog in the distribution.
+
+EXAMPLES
+    In addition to the code snippets contained in this document, the t/
+    directory of the distribution contains a number of tests that exercise
+    the API. Although artificial, they are a good source of examples.
+
+    Note that the type of data returned when extracting attributes and
+    extensions is dependent on the specific OID used.
+
+    Also note that some functions not listed in this document are tested.
+    The fact that they are tested does not imply that they are stable, or
+    that they will be present in any future release.
+
+    The test data was selected to exercise the API; the CSR contents are not
+    representative of realistic certificate requests.
 
 AUTHORS
     Gideon Knocke

@@ -6,7 +6,7 @@ author:
 build_requires:
   File::Spec: 0
   Pod::Readme: 0.11
-  Test::More: 0
+  Test::More: 0.94
 configure_requires:
   ExtUtils::MakeMaker: 0
 dynamic_config: 0

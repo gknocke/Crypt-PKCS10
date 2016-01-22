@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More 0.94 tests => 8;
 
 use File::Spec;
 
@@ -257,10 +257,13 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 };
 
 subtest 'attribute functions' => sub {
-    plan tests => 5;
+    plan tests => 7;
 
     is_deeply( [ $decoded->attributes ], [qw/challengePassword unstructuredName/],
 	       'attributes list is correct' );
+    is( scalar $decoded->attributes( 'missing' ), undef, 'missing attribute ' );
+    is( scalar $decoded->attributes( '1.2.840.113549.1.9.7' ), 'Secret',
+	'challengePassword string by OID' );
     is( scalar $decoded->attributes( 'challengePassword' ), 'Secret',
 	'challengePassword string' );
     is_deeply( [ $decoded->attributes( 'challengePassword' ) ], [ 'Secret' ],
@@ -273,15 +276,21 @@ subtest 'attribute functions' => sub {
 };
 
 subtest "basic extension functions" => sub {
-    plan tests => 13;
+    plan tests => 17;
 
     is_deeply( [ $decoded->extensions ],
 	       [ qw/basicConstraints keyUsage extKeyUsage subjectAltName
                     subjectKeyIdentifier certificatePolicies/ ],
 	       'extensions list is correct' );
 
+    is( $decoded->extensionPresent( '-- I surely dont exist-' ), undef, 'extensionPresent undef' );
+    is( $decoded->extensionPresent( '2.5.29.14' ), 1, 'extensionPresent by OID' ); # subjectKeyIdentifier
+    is( $decoded->extensionPresent( 'basicConstraints' ), 2, 'extension present critical ' );
+
     is( $decoded->extensionValue( 'basicConstraints', 1 ), 'CA:TRUE',
 	'basicConstraints string' );
+    is( $decoded->extensionValue( '2.5.29.19', 1 ), 'CA:TRUE',
+	'basicConstraints string by OID' );
     is_deeply( $decoded->extensionValue( 'basicConstraints' ), { CA => 'TRUE' },
 	       'basicConstraints hash' );
 
@@ -428,13 +437,16 @@ subtest "subjectAltname" => sub {
 };
 
 subtest 'oid mapping' => sub {
-    plan tests => 4;
+    plan tests => 6;
 
     is( Crypt::PKCS10->name2oid( 'houseIdentifier' ), '2.5.4.51', 'name2oid main table' );
     is( Crypt::PKCS10->name2oid( 'timeStamping' ), '1.3.6.1.5.5.7.3.8', 'name2oid extKeyUsages' );
+    is( Crypt::PKCS10->name2oid( '-- I surely dont exist-' ), undef, 'name2oid returns undef if unknown' );
 
     is( Crypt::PKCS10->oid2name( '2.5.4.51' ), 'houseIdentifier', 'oid2name main table' );
     is( Crypt::PKCS10->oid2name( '1.3.6.1.5.5.7.3.8' ), 'timeStamping', 'oid2name extKeyUsages' );
+    is( Crypt::PKCS10->oid2name( '0' ), '0', 'oid2name returns oid if not registered' );
+
 };
 
 subtest 'Microsoft extensions' => sub {
@@ -498,6 +510,8 @@ subtest 'stringify object' => sub {
     plan tests => 4;
 
     my $string = eval {
+	local $SIG{__WARN__} = sub { die $_[0] };
+
 	return "$decoded";
     };
 
@@ -508,7 +522,7 @@ subtest 'stringify object' => sub {
     cmp_ok( length $string, '>=', 2800, 'approximae result length' ) or
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
-    ok( $string =~ m{^Subject\s*: /O=TestOrg/CN=TestCN$}ms, 'string includes subject' );
+    like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );
 };
 
     # registerOID test needed

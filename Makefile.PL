@@ -31,7 +31,7 @@ my %WriteMakefileArgs = (
   },
   "TEST_REQUIRES" => {
     "File::Spec" => 0,
-    "Test::More" => 0
+    "Test::More" => "0.94"
   },
   "VERSION" => "1.403",
   "test" => {
@@ -48,7 +48,7 @@ my %FallbackPrereqs = (
   "MIME::Base64" => 0,
   "Pod::Readme" => "0.11",
   "Scalar::Util" => 0,
-  "Test::More" => 0,
+  "Test::More" => "0.94",
   "bytes" => 0,
   "overload" => 0,
   "strict" => 0,

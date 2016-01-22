@@ -41,7 +41,7 @@
       "test" : {
          "requires" : {
             "File::Spec" : "0",
-            "Test::More" : "0"
+            "Test::More" : "0.94"
          }
       }
    },

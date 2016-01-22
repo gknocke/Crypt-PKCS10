@@ -272,6 +272,7 @@ sub name2oid {
     my( $oid ) = @_;
 
     return undef unless( defined $oid && $apiVersion > 0 );
+
     return $name2oid{$oid};
 }
 
@@ -1105,6 +1106,8 @@ sub attributes {
 	return grep { $_  ne 'extensionRequest' } keys %$attributes;
     }
 
+    $name = $self->_oid2name( $name );
+
     if( $name eq 'extensionRequest' ) { # Meaningless, and extensions/extensionValue handle
 	return () if( wantarray );
 	return undef;
@@ -1217,6 +1220,9 @@ sub extensionValue {
     my $attributes = $self->_attributes;
     my $value;
     return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
+
+    $extensionName = $self->_oid2name( $extensionName );
+
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
 
     foreach my $entry (@{$attributes->{extensionRequest}}) {
@@ -1249,6 +1255,8 @@ sub extensionPresent {
 
     my $attributes = $self->_attributes;
     return undef unless( defined $attributes && exists $attributes->{extensionRequest} );
+
+    $extensionName = $self->_oid2name( $extensionName );
 
     $extensionName = $variantNames{$extensionName} if( exists $variantNames{$extensionName} );
 
@@ -1614,7 +1622,8 @@ include the requestedExtensions attribute.  For that, use extensions();
 
 If no attributes are present, the empty list (C<undef> in scalar context) is returned.
 
-If $name is specified, the value of the extension is returned.
+If $name is specified, the value of the extension is returned.  $name can be specified
+as a numeric OID.
 
 In scalar context, a single string is returned, which may include lists and labels.
 
@@ -1626,6 +1635,19 @@ In array context, the value(s) are returned as a list of items, which may be ref
 
  print( " $_: ", scalar $decoded->attributes($_), "\n" )
                                    foreach ($decoded->attributes);
+
+
+=for readme stop
+
+See the I<Table of known OID names> below for a list of names.
+
+=for readme continue
+
+=begin readme pod
+
+See the module documentation for a list of known OID names.
+
+=end readme
 
 =head2 extensions
 
@@ -1645,7 +1667,9 @@ the B<critical> boolean.  B<critical> can be obtained with extensionPresent.
 
 =head2 extensionValue( $name, $format )
 
-Returns the value of an extension by name, e.g. C<extensionValue( 'keyUsage' )>.  The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
+Returns the value of an extension by name, e.g. C<extensionValue( 'keyUsage' )>.
+The name SHOULD be an API v1 name, but API v0 names are accepted for compatibility.
+The name can also be specified as a numeric OID.
 
 If C<$format> is 1, the value is a formatted string, which may include lists and labels.
 Special characters are escaped as described in options;
@@ -1655,6 +1679,18 @@ The array many contain any Perl variable type.
 
 To interpret the value(s), you need to know the structure of the OID.
 
+=for readme stop
+
+See the I<Table of known OID names> below for a list of names.
+
+=for readme continue
+
+=begin readme pod
+
+See the module documentation for a list of known OID names.
+
+=end readme
+
 =head2 extensionPresent( $name )
 
 Returns B<true> if a named extension is present:
@@ -1663,15 +1699,67 @@ Returns B<true> if a named extension is present:
 
 If the extension is not present, returns C<undef>.
 
+The name can also be specified as a numeric OID.
+
+=for readme stop
+
+See the I<Table of known OID names> below for a list of names.
+
+=for readme continue
+
 =begin readme pod
 
 See the module documentation for a list of known OID names.
 
 =end readme
 
+=head2 registerOID( )
+
+Class method.
+
+Register a custom OID, or a public OID that has not been added to Crypt::PKCS10 yet.
+
+The OID may be an extension identifier or an RDN component.
+
+The oid is specified as a string in numeric form, e.g. C<'1.2.3.4'>
+
+=head3 registerOID( $oid )
+
+Returns B<true> if the specified OID is registered, B<false> otherwise.
+
+=head3 registerOID( $oid, $longname, $shortname )
+
+Registers the specified OID with the associated long name.  This
+enables the OID to be translated to a name in output.
+
+The long name should be Hungarian case (B<commonName>), but this is not currently
+enforced.
+
+Optionally, specify the short name used for extracting the subject.
+The short name should be upper-case (and will be upcased).
+
+E.g. built-in are C<< $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN' >>
+
+
+Generates an exception if any argument is not valid, or is in use.
+
+Returns B<true> otherwise.
+
+=head2 certificateTemplate
+
+C<CertificateTemplate> returns the B<certificateTemplate> attribute.
+
+Equivalent to C<extensionValue( 'certificateTemplate' )>, which is prefered.
+
 =for readme stop
 
-The following OID names are known (not all are extensions):
+=head2 Table of known OID names
+
+The following OID names are known.  They are used in returned strings and
+structures, and as names by methods such as B<extensionValue>.
+
+Unknown OIDs are returned in numeric form, or can be registered with
+B<registerOID>.
 
 =begin MAINTAINER
 
@@ -1788,53 +1876,30 @@ The following OID names are known (not all are extensions):
 
 =for readme continue
 
-=head2 registerOID( )
-
-Class method.
-
-Register a custom OID, or a public OID that has not been added to Crypt::PKCS10 yet.
-
-The OID may be an extension identifier or an RDN component.
-
-The oid is specified as a string in numeric form, e.g. C<'1.2.3.4'>
-
-=head3 registerOID( $oid )
-
-Returns B<true> if the specified OID is registered, B<false> otherwise.
-
-=head3 registerOID( $oid, $longname, $shortname )
-
-Registers the specified OID with the associated long name.
-The long name should be Hungarian case (B<commonName>), but this is not currently
-enforced.
-
-Optionally, specify the short name used for extracting the subject.
-The short name should be upper-case (and will be upcased).
-
-E.g. built-in are C<< $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN' >>
-
-
-Generates an exception if any argument is not valid, or is in use.
-
-Returns B<true> otherwise.
-
-=head2 certificateTemplate
-
-C<CertificateTemplate> returns the B<certificateTemplate> attribute.
-
-Equivalent to C<extensionValue( 'certificateTemplate' )>, which is prefered.
-
 =begin readme pod
 
 =head1 CHANGES
 
-=for readme include file=Changes type=text start=^1\.0
+=for readme include file=Changes type=text start=^1\.0 stop=^__END__
 
-
-
-For detailed change listing, see Commitlog.
+For a more detailed list of changes, see F<Commitlog> in the distribution.
 
 =end readme
+
+=head1 EXAMPLES
+
+In addition to the code snippets contained in this document, the F<t/> directory of the distribution
+contains a number of tests that exercise the API.  Although artificial, they are a good source of
+examples.
+
+Note that the type of data returned when extracting attributes and extensions is dependent
+on the specific OID used.
+
+Also note that some functions not listed in this document are tested.  The fact that they are
+tested does not imply that they are stable, or that they will be present in any future release.
+
+The test data was selected to exercise the API; the CSR contents are not representative of
+realistic certificate requests.
 
 =head1 AUTHORS
 

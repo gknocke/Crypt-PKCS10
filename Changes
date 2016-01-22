@@ -73,3 +73,6 @@ Revision history for perl module Crypt::PKCS10
 - Improve tests
 - Enable (internal) custom formatters for extensions and attributes.
 - Return basicConstraints as a hash
+- Accept numeric OIDs as arguments to extensionValue, extensionPresent and attributes.
+
+__END__
