@@ -465,9 +465,9 @@ subtest 'Microsoft extensions' => sub {
     is( scalar $decoded->subject, '/O=TestOrg/CN=TestCN', 'subject' );
     is_deeply( [ $decoded->attributes ],
 	       [
+		'ClientInformation',
 		'ENROLLMENT_CSP_PROVIDER',
 		'ENROLLMENT_NAME_VALUE_PAIR',
-		'ClientInformation',
 		'OS_Version'
 	       ], 'attributes list' );
 

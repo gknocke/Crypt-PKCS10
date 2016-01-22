@@ -77,5 +77,6 @@ Revision history for perl module Crypt::PKCS10
 
 1.4_04
  - Build Kwalitee issues: Minimum Perl version, Repo location, and Provides in META
+ - Fix test issues due to hash randomization on newer Perl versions.
 
 __END__

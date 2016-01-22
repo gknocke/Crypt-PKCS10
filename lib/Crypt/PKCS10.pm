@@ -935,8 +935,8 @@ sub _convert_rdn {
 	    my $oid = $item->{type};
 	    my $name = (exists $variantNames{$oid})? $variantNames{$oid}[1]: $oids{ $oid };
 	    if( defined $name ) {
-		push @{$hash{$name}}, values %{$item->{value}};
-		push @{$hash{_subject}}, $name, [ values %{$item->{value}} ];
+		push @{$hash{$name}}, sort values %{$item->{value}};
+		push @{$hash{_subject}}, $name, [ sort values %{$item->{value}} ];
 		my @names = (exists $variantNames{$oid})? @{$variantNames{$oid}} : ( $name );
 		foreach my $name ( @names ) {
 		    unless( $self->can( $name ) ) {
@@ -1030,7 +1030,7 @@ sub subjectAltName {
 	if( wantarray ) {
 	    my %comps;
 	    $comps{$_} = 1 foreach (map { keys %$_ } @$san);
-	    return keys %comps;
+	    return sort keys %comps;
 	}
 	my @string;
 	foreach my $comp (@$san) {
@@ -1103,7 +1103,7 @@ sub attributes {
     }
 
     unless( defined $name ) {
-	return grep { $_  ne 'extensionRequest' } keys %$attributes;
+	return grep { $_  ne 'extensionRequest' } sort keys %$attributes;
     }
 
     $name = $self->_oid2name( $name );
@@ -1112,6 +1112,10 @@ sub attributes {
 	return () if( wantarray );
 	return undef;
     }
+
+    # There can only be one matching the name.
+    # If the match becomes wider, sort the keys.
+
 
     my @attrs = grep { $_ eq $name } keys %$attributes;
     unless( @attrs ) {
@@ -1230,7 +1234,7 @@ sub extensionValue {
             $value = $entry->{extnValue};
 	    if( $apiVersion == 0 ) {
 		while (ref $value eq 'HASH') {
-		    my @keys = keys %{$value};
+		    my @keys = sort keys %{$value};
 		    $value = $value->{ shift @keys } ;
 		}
 	    } else {
