@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 8;
 
 use File::Spec;
 
@@ -492,6 +492,23 @@ subtest 'Microsoft extensions' => sub {
 	       }, 'ClientInformation hash' );
 
     is( scalar $decoded->attributes( 'OS_Version' ), '6.1.7601.2', 'OS_Version' );
+};
+
+subtest 'stringify object' => sub {
+    plan tests => 4;
+
+    my $string = eval {
+	return "$decoded";
+    };
+
+    is( $@, '', 'no exception' );
+
+    isnt( $string, undef, 'returns something' );
+
+    cmp_ok( length $string, '>=', 2800, 'approximae result length' ) or
+      diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
+
+    ok( $string =~ m{^Subject\s*: /O=TestOrg/CN=TestCN$}ms, 'string includes subject' );
 };
 
     # registerOID test needed
