@@ -205,11 +205,11 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
     subtest "subject name component access" => sub {
 	plan tests => 9;
 
-	is( join( ',',  $decoded->countryName ),            'AU',                       '/OU' );
+	is( join( ',',  $decoded->countryName ),            'AU',                       '/C' );
 	is( join( ',',  $decoded->stateOrProvinceName ),    'Some-State',               '/ST' );
 	is( join( ',',  $decoded->localityName ),           'my city',                  '/L' );
 	is( join( ',',  $decoded->organizationName ),       'Internet Widgits Pty Ltd', '/O' );
-	is( join( ',',  $decoded->organizationalUnitName ), 'Big org,Smaller org',      '/OU' );
+	is( join( ',',  $decoded->organizationalUnitName ), 'Big org,Smaller org',      '/OU/OU' );
 	is( join( ',',  $decoded->commonName ),             'My Name',                  '/CN' );
 	is( join( ',',  $decoded->emailAddress ),           'none@no-email.com',        '/emailAddress' );
 	is( join( ',',  $decoded->domainComponent ),        'domainComponent',          '/DC' );
@@ -373,9 +373,9 @@ subtest "basic extension functions" => sub {
 	    ],
 		   'certificatePolicies array' );
 
-	is( $decoded->certificateTemplate, undef, 'certificateTemplate absemt' );
+	is( $decoded->certificateTemplate, undef, 'certificateTemplate absent' );
 
-	is( $decoded->extensionValue('foo'), undef, 'extensionValue when extension absemt' );
+	is( $decoded->extensionValue('foo'), undef, 'extensionValue when extension absent' );
 
 	is( $decoded->extensionValue('subjectAltName', 1),
 	    'rfc822Name=noway@none.com,uniformResourceIdentifier=htt' .
@@ -519,7 +519,7 @@ subtest 'stringify object' => sub {
 
     isnt( $string, undef, 'returns something' );
 
-    cmp_ok( length $string, '>=', 2800, 'approximae result length' ) or
+    cmp_ok( length $string, '>=', 2800, 'approximate result length' ) or
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
     like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );

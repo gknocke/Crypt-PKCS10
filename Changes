@@ -54,7 +54,7 @@ Revision history for perl module Crypt::PKCS10
 1.4_03
 
 - certificateTemplate ASN correction: MajorVersion is optional
-- certificateTemplate return id as a name if OID registered (API V1)
+- certificateTemplate returns id as a name if OID registered (API V1)
 - handle some malformed requests better
 - decode more M$ attributes, correct some.
 - Don't croak() on missing attributes
