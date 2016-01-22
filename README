@@ -437,6 +437,9 @@ CHANGES
         - Enable (internal) custom formatters for extensions and attributes.
         - Return basicConstraints as a hash
         - Accept numeric OIDs as arguments to extensionValue, extensionPresent and attributes.
+    
+    1.4_04
+         - Build Kwalitee issues: Minimum Perl version, Repo location, and Provides in META
 
     For a more detailed list of changes, see Commitlog in the distribution.
 

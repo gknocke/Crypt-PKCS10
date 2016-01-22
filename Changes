@@ -75,4 +75,7 @@ Revision history for perl module Crypt::PKCS10
 - Return basicConstraints as a hash
 - Accept numeric OIDs as arguments to extensionValue, extensionPresent and attributes.
 
+1.4_04
+ - Build Kwalitee issues: Minimum Perl version, Repo location, and Provides in META
+
 __END__

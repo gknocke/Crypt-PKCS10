@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-
+use 5.008008;
 
 use ExtUtils::MakeMaker;
 
@@ -17,6 +17,7 @@ my %WriteMakefileArgs = (
   },
   "DISTNAME" => "Crypt-PKCS10",
   "LICENSE" => "perl",
+  "MIN_PERL_VERSION" => "5.008008",
   "NAME" => "Crypt::PKCS10",
   "PREREQ_PM" => {
     "Carp" => 0,
@@ -33,7 +34,7 @@ my %WriteMakefileArgs = (
     "File::Spec" => 0,
     "Test::More" => "0.94"
   },
-  "VERSION" => "1.403",
+  "VERSION" => "1.404",
   "test" => {
     "TESTS" => "t/*.t"
   }

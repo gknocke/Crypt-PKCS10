@@ -32,7 +32,7 @@ use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
 
-our $VERSION = 1.4_03;
+our $VERSION = 1.4_04;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 my $error;

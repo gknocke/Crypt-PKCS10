@@ -4,8 +4,10 @@ Clone the git repository & cd to it
 
 Commit any changes.
 
-Install Dist::Zilla from CPAN (has many dependencies)
+Install Dist::Zilla from CPAN (has many dependencies, takes a LONG time)
 Install Dist::Zilla::Plugin::CopyFilesFromBuild
+Install Dist::Zilla::Plugin::MetaProvides::Package
+Install Dist::Zilla::Plugin::MinimumPerl
 Install Dist::Zilla::Plugin::Run
 Install Pod::Readme
 
