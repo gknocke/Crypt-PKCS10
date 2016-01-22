@@ -4,7 +4,6 @@ author:
   - 'Gideon Knocke <gknocke@cpan.org>'
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
-  File::Basename: 0
   File::Spec: 0
   Pod::Readme: 0.11
   Test::More: 0

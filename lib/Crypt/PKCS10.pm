@@ -4,6 +4,7 @@
 # ABSTRACT: parse PKCS #10 certificate requests
 #
 # This software is copyright (c) 2014 by Gideon Knocke.
+# Copyright (c) 2016 Gideon Knocke, Timothe Litt
 #
 # This is free software; you can redistribute it and/or modify it under
 # the same terms as the Perl 5 programming language system itself.
@@ -227,10 +228,13 @@ sub __listOIDs {
 	}
     }
 
-    printf( " %-*s %-*s %s\n %s %s %s\n", $max[0], 'OID', $max[1], 'Name (API v1)', 'Old Name (API v0)', '-' x $max[0], '-' x $max[1], '-' x $max[2] );
+    printf( " %-*s %-*s %s\n %s %s %s\n", $max[0], 'OID',
+	                                  $max[1], 'Name (API v1)', 'Old Name (API v0)',
+	                                  '-' x $max[0], '-' x $max[1], '-' x $max[2] );
 
     foreach my $oid ( sort _cmpOID keys %$hash ) {
-	printf( " %-*s %-*s", $max[0], $oid, $max[1], (exists $variantNames{$oid})? $variantNames{$oid}[0]: $hash->{$oid} );
+	printf( " %-*s %-*s", $max[0], $oid, $max[1], (exists $variantNames{$oid})?
+		                                         $variantNames{$oid}[0]: $hash->{$oid} );
 	printf( " (%-s)", $variantNames{$oid}[1] ) if( exists $variantNames{$oid} );
 	print( "\n" );
     }
@@ -314,7 +318,8 @@ sub registerOID {
     croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
     croak( "$oid already registered" )       if( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
     croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
-    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/, values %shortnames );
+    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/,
+						                            values %shortnames );
 
     $oids{$oid} = $longname;
     $shortnames{$longname} = uc $shortname   if( defined $shortname );
@@ -380,7 +385,7 @@ sub _new {
     }
 
     if( $self->{_acceptPEM} && $der =~         # if PEM, convert to DER
-	/^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s+(.*?)\s*^-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms ) {
+/^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s+(.*?)\s*^-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms ) {
 	$der = $1;
 
 	# Some versions of MIME::Base64 check the input.  Some don't.  Those that do
@@ -394,7 +399,8 @@ sub _new {
         $der = decode_base64( $der );
     }
 
-    #some Requests may contain information outside of the regular ASN.1 structure. These parts need to be stripped off
+    # some Requests may contain information outside of the regular ASN.1 structure.
+    # These parts need to be stripped off
 
     $der = eval { # Catch out of range errors caused by bad DER & report as format errors.
 	use bytes;
@@ -725,7 +731,8 @@ my %special;
      my $bit =  unpack('C*', @{$value}[0]); #get the decimal representation
      my $length = int(log($bit) / log(2) + 1); #get its bit length
      my @usages = reverse( $id eq 'KeyUsage'? # Following are in order from bit 0 upwards
-			   qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
+			   qw(digitalSignature nonRepudiation keyEncipherment dataEncipherment
+                              keyAgreement keyCertSign cRLSign encipherOnly decipherOnly) :
 			   qw(client server email objsign reserved sslCA emailCA objCA) );
      my $shift = ($#usages + 1) - $length; # computes the unused area in @usages
 
@@ -1273,7 +1280,8 @@ sub _stringify {
     local $self->{_escapeStrings} = 0;
 
     my $max = 0;
-    foreach ($self->attributes, $self->extensions, qw/Version Subject Key_algorithm Public_key Signature_algorithm Signature/) {
+    foreach ($self->attributes, $self->extensions,
+	     qw/Version Subject Key_algorithm Public_key Signature_algorithm Signature/) {
 	$max = length if( length > $max );
     }
 
@@ -1297,7 +1305,9 @@ sub _stringify {
 	my $critical = $self->extensionPresent($_) == 2? 'critical,': '';
 
 	$string .= sprintf( "%-*s: %s\n", $max, $_,
-			    _wrap( $max+2, $critical . ($_ eq 'subjectAltName'? scalar $self->subjectAltName: $self->extensionValue($_, 1) ) ) );
+			    _wrap( $max+2, $critical . ($_ eq 'subjectAltName'?
+							scalar $self->subjectAltName:
+							$self->extensionValue($_, 1) ) ) );
     }
 
     $string .= "\n          --Key and signature--\n";
@@ -1819,6 +1829,8 @@ Equivalent to C<extensionValue( 'certificateTemplate' )>, which is prefered.
 =head1 CHANGES
 
 =for readme include file=Changes type=text start=^1\.0
+
+
 
 For detailed change listing, see Commitlog.
 

@@ -2,22 +2,52 @@
 
 # Base tests for Crypt::PKCS10
 
+# This software is copyright (c) 2014 by Gideon Knocke.
+# Copyright (c) 2016 Gideon Knocke, Timothe Litt
+#
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
+#
+# Terms of the Perl programming language system itself
+#
+# a) the GNU General Public License as published by the Free
+#   Software Foundation; either version 1, or (at your option) any
+#   later version, or
+# b) the "Artistic License"
+#
+# See LICENSE for details.
+#
 use strict;
 use warnings;
 
 use Test::More tests => 7;
 
-use File::Basename;
 use File::Spec;
+
+# Name of directory where data files are found
+
+my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 19;
+    plan tests => 22;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
     }
+
+    # Fixed public API methods
+
+    can_ok( 'Crypt::PKCS10', qw/setAPIversion name2oid oid2name registerOID new error csrRequest subject
+                                subjectAltName version pkAlgorithm subjectPublicKey signatureAlgorithm
+                                signature attributes certificateTemplate extensions extensionValue
+                                extensionPresent/ );
+
+    # Dynamically-generated fixed accessor methods
+
+    can_ok( 'Crypt::PKCS10', qw/commonName organizationalUnitName organizationName
+                          emailAddress stateOrProvinceName countryName domainComponent/ );
 
     ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
 
@@ -50,15 +80,23 @@ more junk
 
     isnt( $decoded, undef, 'load PEM from variable' ) or BAIL_OUT( Crypt::PKCS10->error );
 
-    is( $decoded->version, "v1", 'verify CSR version' );
+    isa_ok( $decoded, 'Crypt::PKCS10' ); # Make sure new objects are blessed
 
-    is( $decoded->commonName, "test", 'verify CSR commonName' );
+    is( $decoded->version, "v1", 'CSR version' );
 
-    is( $decoded->emailAddress, 'test@test.com', 'verify emailAddress' );
+    is( $decoded->commonName, "test", 'CSR commonName' );
 
-    is( $decoded->subjectPublicKey, '3082010a0282010100e0484c12ee29a56fb72d2829fdf286859b049a007d9030126bdd1e9d2319be38b4a40b00416dc54b000340ba580bb1c511e251e1a781ec2139c52d41e16226f607d1c4b3027a4a951eadc88e90b100de568f267902c694399d1392b27b7a7f31d84795e51d6833ee46132bfc049f9f962cc6f50e511f1a56227d47d7e3d60f8756d914a8fcf5440a67e571e4106fa6e6cb1cbe6e46b94abed62f11bde4b2cfb2cf330558654e7f27ccc82b28708517a3336a36a9308b5683cbf3dcca492cd563ae3a74d2d337424a644771cce8704dc47e67ecff2389587a57e3a2197813114a58cecd260071bf03c97aa4b2d0bf0e1f51310202bc7dee79ba9e884a6528a36f0203010001', 'verify hex subjectPublicKey' );
+    is( $decoded->emailAddress, 'test@test.com', 'emailAddress' );
 
-    is( $decoded->subjectPublicKey(1), << '_KEYPEM_', 'verify PEM subjectPublicKey' );
+    is( $decoded->subjectPublicKey, '3082010a0282010100e0484c12ee29a56fb72d2829fdf286859b049a007' .
+	'd9030126bdd1e9d2319be38b4a40b00416dc54b000340ba580bb1c511e251e1a781ec2139c52d41e16226f6' .
+	'07d1c4b3027a4a951eadc88e90b100de568f267902c694399d1392b27b7a7f31d84795e51d6833ee46132bf' .
+	'c049f9f962cc6f50e511f1a56227d47d7e3d60f8756d914a8fcf5440a67e571e4106fa6e6cb1cbe6e46b94a' .
+	'bed62f11bde4b2cfb2cf330558654e7f27ccc82b28708517a3336a36a9308b5683cbf3dcca492cd563ae3a7' .
+	'4d2d337424a644771cce8704dc47e67ecff2389587a57e3a2197813114a58cecd260071bf03c97aa4b2d0bf' .
+	'0e1f51310202bc7dee79ba9e884a6528a36f0203010001', 'hex subjectPublicKey' );
+
+    is( $decoded->subjectPublicKey(1), << '_KEYPEM_', 'PEM subjectPublicKey' );
 -----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EhMEu4ppW+3LSgp/fKGhZsEmgB9kDAS
 a90enSMZvji0pAsAQW3FSwADQLpYC7HFEeJR4aeB7CE5xS1B4WIm9gfRxLMCekqVHq3IjpCxAN5W
@@ -69,11 +107,18 @@ ZSijbwIDAQAB
 -----END PUBLIC KEY-----
 _KEYPEM_
 
-    is( $decoded->signature, 'dc8ba14eade00b952cdaacf0f48986407f01802b3d2c626c0cea42f977a39c3dbb58db01c1897fb72a3d46c811269e446c4c208f63030694216f84ecca99163a60587e5bdf14075728e49e9b5e3992672021e694c1dcc2a5f5ba4fb2c02de1453702ffe93ec2d9dbb3486f0a1e9cb75ee24e6f6a23c4e57f8c611c5aec5de08e0a6b4ddff1d28f2ddcf5d61507f8dee490deb185a20f2d52b29e43fc583d3b00b7ee9e7b54d2c4c828f7f7babf6dd42d77dc2431029b61330e0b55a6dcc728f573af196fdebecdb4b78c483636e4c537fe36f69d86c5a7e024672a4504caa3a2be48e891ff4b83b4815ea6972f54367466decce6be94c67aed04145392684726', 'verify signature' );
+    is( $decoded->signature, 'dc8ba14eade00b952cdaacf0f48986407f01802b3d2c626c0cea42f977a39c3dbb5' .
+	'8db01c1897fb72a3d46c811269e446c4c208f63030694216f84ecca99163a60587e5bdf14075728e49e9b5e3' .
+	'992672021e694c1dcc2a5f5ba4fb2c02de1453702ffe93ec2d9dbb3486f0a1e9cb75ee24e6f6a23c4e57f8c6' .
+	'11c5aec5de08e0a6b4ddff1d28f2ddcf5d61507f8dee490deb185a20f2d52b29e43fc583d3b00b7ee9e7b54d' .
+	'2c4c828f7f7babf6dd42d77dc2431029b61330e0b55a6dcc728f573af196fdebecdb4b78c483636e4c537fe3' .
+	'6f69d86c5a7e024672a4504caa3a2be48e891ff4b83b4815ea6972f54367466decce6be94c67aed04145392684726',
+	'signature' );
 
-    is( scalar $decoded->subject, '/DC=org/DC=OpenSSL/DC=users/CN=test/UID=123456/emailAddress=test@test.com', 'verify subject()' );
+    is( scalar $decoded->subject, '/DC=org/DC=OpenSSL/DC=users/CN=test/UID=123456/emailAddress=test@test.com',
+	'subject()' );
 
-    is( scalar $decoded->userID, '123456', 'verify userID accessor autoloaded' );
+    is( scalar $decoded->userID, '123456', 'userID accessor autoloaded' );
 
     # Note that this is the input, but re-wrapped because the encoder has
     # a different line length from OpenSSL.
@@ -96,21 +141,44 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 -----END CERTIFICATE REQUEST-----
 ~~~
 
-    my $extder = "0\202\2\3160\202\1\266\2\1\0000\201\2101\0230\21\6\n\t\222&\211\223\362,d\1\31\26\3org1\0270\25\6\n\t\222&\211\223\362,d\1\31\26\aOpenSSL1\0250\23\6\n\t\222&\211\223\362,d\1\31\26\5users1#0\13\6\3U\4\3\f\4test0\24\6\n\t\222&\211\223\362,d\1\1\f\0061234561\0340\32\6\t*\206H\206\367\r\1\t\1\26\rtest\@test.com0\202\1\"0\r\6\t*\206H\206\367\r\1\1\1\5\0\3\202\1\17\0000\202\1\n\2\202\1\1\0\340HL\22\356)\245o\267-()\375\362\206\205\233\4\232\0}\2200\22k\335\36\235#\31\2768\264\244\13\0Am\305K\0\3\@\272X\13\261\305\21\342Q\341\247\201\354!9\305-A\341b&\366\a\321\304\263\2zJ\225\36\255\310\216\220\261\0\336V\217&y\2\306\2249\235\23\222\262{z\1771\330G\225\345\35h3\356F\23+\374\4\237\237\226,\306\365\16Q\37\32V\"}G\327\343\326\17\207V\331\24\250\374\365D\ng\345q\344\20o\246\346\313\34\276nF\271J\276\326/\21\275\344\262\317\262\3173\5XeN\177'\314\310+(p\205\27\2433j6\2510\213V\203\313\363\334\312I,\325c\256:t\322\3237BJdGq\314\350pM\304~g\354\377#\211XzW\343\242\31x\23\21JX\316\315&\0q\277\3\311z\244\262\320\277\16\37Q1\2\2\274}\356y\272\236\210Je(\243o\2\3\1\0\1\240\0000\r\6\t*\206H\206\367\r\1\1\13\5\0\3\202\1\1\0\334\213\241N\255\340\13\225,\332\254\360\364\211\206\@\177\1\200+=,bl\f\352B\371w\243\234=\273X\333\1\301\211\177\267*=F\310\21&\236DlL \217c\3\6\224!o\204\354\312\231\26:`X~[\337\24\aW(\344\236\233^9\222g !\346\224\301\334\302\245\365\272O\262\300-\341E7\2\377\351>\302\331\333\263Ho\n\36\234\267^\342Noj#\304\345\177\214a\34Z\354]\340\216\nkM\337\361\322\217-\334\365\326\25\a\370\336\344\220\336\261\205\242\17-R\262\236C\374X=;\0\267\356\236{T\322\304\310(\367\367\272\277m\324-w\334\$1\2\233a3\16\13U\246\334\307(\365s\257\31o\336\276\315\264\267\214H66\344\3057\3766\366\235\206\305\247\340\$g*E\4\312\243\242\276H\350\221\377K\203\264\201^\246\227/T6tf\336\314\346\276\224\306z\355\4\24S\222hG&";
+    my $extder = "0\202\2\3160\202\1\266\2\1\0000\201\2101\0230\21\6\n\t\222&\211" .
+      "\223\362,d\1\31\26\3org1\0270\25\6\n\t\222&\211\223\362,d\1\31\26\aOpenSSL1" .
+      "\0250\23\6\n\t\222&\211\223\362,d\1\31\26\5users1#0\13\6\3U\4\3\f\4test0\24" .
+      "\6\n\t\222&\211\223\362,d\1\1\f\0061234561\0340\32\6\t*\206H\206\367\r\1\t\1" .
+      "\26\rtest\@test.com0\202\1\"0\r\6\t*\206H\206\367\r\1\1\1\5\0\3\202\1\17\0000" .
+      "\202\1\n\2\202\1\1\0\340HL\22\356)\245o\267-()\375\362\206\205\233\4\232\0}" .
+      "\2200\22k\335\36\235#\31\2768\264\244\13\0Am\305K\0\3\@\272X\13\261\305\21" .
+      "\342Q\341\247\201\354!9\305-A\341b&\366\a\321\304\263\2zJ\225\36\255\310\216" .
+      "\220\261\0\336V\217&y\2\306\2249\235\23\222\262{z\1771\330G\225\345\35h3\356F" .
+      "\23+\374\4\237\237\226,\306\365\16Q\37\32V\"}G\327\343\326\17\207V\331\24\250" .
+      "\374\365D\ng\345q\344\20o\246\346\313\34\276nF\271J\276\326/\21\275\344\262" .
+      "\317\262\3173\5XeN\177'\314\310+(p\205\27\2433j6\2510\213V\203\313\363\334\312" .
+      "I,\325c\256:t\322\3237BJdGq\314\350pM\304~g\354\377#\211XzW\343\242\31x\23\21JX" .
+      "\316\315&\0q\277\3\311z\244\262\320\277\16\37Q1\2\2\274}\356y\272\236\210Je(\243o" .
+      "\2\3\1\0\1\240\0000\r\6\t*\206H\206\367\r\1\1\13\5\0\3\202\1\1\0\334\213\241N\255" .
+      "\340\13\225,\332\254\360\364\211\206\@\177\1\200+=,bl\f\352B\371w\243\234=\273X" .
+      "\333\1\301\211\177\267*=F\310\21&\236DlL \217c\3\6\224!o\204\354\312\231\26:`X~[" .
+      "\337\24\aW(\344\236\233^9\222g !\346\224\301\334\302\245\365\272O\262\300-\341E7\2" .
+      "\377\351>\302\331\333\263Ho\n\36\234\267^\342Noj#\304\345\177\214a\34Z\354]\340\216" .
+      "\nkM\337\361\322\217-\334\365\326\25\a\370\336\344\220\336\261\205\242\17-R\262" .
+      "\236C\374X=;\0\267\356\236{T\322\304\310(\367\367\272\277m\324-w\334\$1\2\233a3\16" .
+      "\13U\246\334\307(\365s\257\31o\336\276\315\264\267\214H66\344\3057\3766\366\235\206" .
+      "\305\247\340\$g*E\4\312\243\242\276H\350\221\377K\203\264\201^\246\227/T6tf\336\314" .
+      "\346\276\224\306z\355\4\24S\222hG&";
 
-    is( $decoded->csrRequest(1), $extcsr, 'verify extracted PEM' );
+    is( $decoded->csrRequest(1), $extcsr, 'extracted PEM' );
 
-    ok( $decoded->csrRequest eq $extder, 'verify extracted DER' );
+    ok( $decoded->csrRequest eq $extder, 'extracted DER' );
 
     isnt( $decoded, undef, 'load PEM from variable' ) or BAIL_OUT( Crypt::PKCS10->error );
 
     #is( $decoded->pkAlgorithm, 'RSA encryption', 'correct encryption algorithm' );
-    is( $decoded->pkAlgorithm, 'rsaEncryption', 'verify encryption algorithm' );
+    is( $decoded->pkAlgorithm, 'rsaEncryption', 'encryption algorithm' );
 
     #is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
-    is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'verify signature algorithm' );
+    is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'signature algorithm' );
 
-    my $file = File::Spec->catfile( dirname( $0 ), 'csr1.pem' );
+    my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 
     if( open( my $csr, '<', $file ) ) {
 	$decoded = Crypt::PKCS10->new( $csr );
@@ -122,7 +190,7 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     my $der = $decoded->csrRequest;
 
-    $file = File::Spec->catfile( dirname( $0 ), 'csr1.cer' );
+    $file = File::Spec->catpath( @dirpath, 'csr1.cer' );
 
     if( open( my $csr, '<', $file ) ) {
 	$decoded = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
@@ -132,9 +200,9 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     isnt( $decoded, undef, 'load DER from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
 
-    ok( $der eq $decoded->csrRequest, "verify DER from file matches DER from PEM" );
+    ok( $der eq $decoded->csrRequest, "DER from file matches DER from PEM" );
 
-    subtest "verify subject name component access" => sub {
+    subtest "subject name component access" => sub {
 	plan tests => 9;
 
 	is( join( ',',  $decoded->countryName ),            'AU',                       '/OU' );
@@ -184,41 +252,51 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 		    [
 		     'domainComponent'
 		    ]
-		   ], "verify subject name component list" );
+		   ], "subject name component list" );
     };
 };
 
-subtest 'verify attribute functions' => sub {
+subtest 'attribute functions' => sub {
     plan tests => 5;
 
-    is_deeply( [ $decoded->attributes ], [qw/challengePassword unstructuredName/], 'verify that attributes list is correct' );
-    is( scalar $decoded->attributes( 'challengePassword' ), 'Secret', 'verify challengePassword string' );
-    is_deeply( [ $decoded->attributes( 'challengePassword' ) ], [ 'Secret' ], 'verify challengePassword array' );
+    is_deeply( [ $decoded->attributes ], [qw/challengePassword unstructuredName/],
+	       'attributes list is correct' );
+    is( scalar $decoded->attributes( 'challengePassword' ), 'Secret',
+	'challengePassword string' );
+    is_deeply( [ $decoded->attributes( 'challengePassword' ) ], [ 'Secret' ],
+	       'challengePassword array' );
 
-    is( scalar $decoded->attributes( 'unstructuredName' ), 'MyCoFoCo', 'verify unstructuredName string' );
-    is_deeply( [ $decoded->attributes( 'unstructuredName' ) ], [ 'MyCoFoCo' ], 'verify unstructuredName array' );
+    is( scalar $decoded->attributes( 'unstructuredName' ), 'MyCoFoCo',
+	'unstructuredName string' );
+    is_deeply( [ $decoded->attributes( 'unstructuredName' ) ], [ 'MyCoFoCo' ],
+	       'unstructuredName array' );
 };
 
-subtest "verify basic extension functions" => sub {
+subtest "basic extension functions" => sub {
     plan tests => 13;
 
     is_deeply( [ $decoded->extensions ],
-	       [ qw/basicConstraints keyUsage extKeyUsage subjectAltName subjectKeyIdentifier certificatePolicies/ ],
-	       'verify that extensions list is correct' );
+	       [ qw/basicConstraints keyUsage extKeyUsage subjectAltName
+                    subjectKeyIdentifier certificatePolicies/ ],
+	       'extensions list is correct' );
 
-    is( $decoded->extensionValue( 'basicConstraints', 1 ), 'CA:TRUE', 'verify basicConstraints string' );
-    is_deeply( $decoded->extensionValue( 'basicConstraints' ), { CA => 'TRUE' }, 'verify basicConstraints hash' );
+    is( $decoded->extensionValue( 'basicConstraints', 1 ), 'CA:TRUE',
+	'basicConstraints string' );
+    is_deeply( $decoded->extensionValue( 'basicConstraints' ), { CA => 'TRUE' },
+	       'basicConstraints hash' );
 
 
-	is( $decoded->extensionValue( 'keyUsage', 1 ), 'keyEncipherment,nonRepudiation,digitalSignature', 'verify keyUsage string' );
+	is( $decoded->extensionValue( 'keyUsage', 1 ),
+	    'keyEncipherment,nonRepudiation,digitalSignature', 'keyUsage string' );
 	is_deeply( $decoded->extensionValue( 'keyUsage'), [
 							   'keyEncipherment',
 							   'nonRepudiation',
 							   'digitalSignature',
-							  ], 'verify keyUsage array' );;
+							  ], 'keyUsage array' );;
 
 	is( $decoded->extensionValue( 'extKeyUsage', 1 ),
-'emailProtection,serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning', 'verify extKeyUsage string' );
+'emailProtection,serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning',
+	    'extKeyUsage string' );
 	is_deeply( $decoded->extensionValue( 'extKeyUsage'), [
 							      'emailProtection',
 							      'serverAuth',
@@ -227,9 +305,10 @@ subtest "verify basic extension functions" => sub {
 							      'emailProtection',
 							      'timeStamping',
 							      'OCSPSigning',
-							  ], 'verify extKeyUsage array' );
+							  ], 'extKeyUsage array' );
 
-	is( $decoded->extensionValue( 'subjectKeyIdentifier', 1 ), '0012459a', 'verify subjectKeyIdentifier string' );
+	is( $decoded->extensionValue( 'subjectKeyIdentifier', 1 ), '0012459a',
+	    'subjectKeyIdentifier string' );
 
 	is( $decoded->extensionValue( 'certificatePolicies', 1 ),
 '(policyIdentifier=postOfficeBox,policyQualifier=((policyQualifierId=CPS,qualifier=http://there.example.net),'.
@@ -285,19 +364,19 @@ subtest "verify basic extension functions" => sub {
 	    ],
 		   'certificatePolicies array' );
 
-	is( $decoded->certificateTemplate, undef, 'verify certificateTemplate absemt' );
+	is( $decoded->certificateTemplate, undef, 'certificateTemplate absemt' );
 
-	is( $decoded->extensionValue('foo'), undef, 'verify extensionValue when extension absemt' );
+	is( $decoded->extensionValue('foo'), undef, 'extensionValue when extension absemt' );
 
 	is( $decoded->extensionValue('subjectAltName', 1),
 	    'rfc822Name=noway@none.com,uniformResourceIdentifier=htt' .
 	    'ps://fred.example.net,rfc822Name=someday@nowhere.exampl' .
 	    'e.com,dNSName=www.example.net,dNSName=www.example.com,d' .
 	    'NSName=example.net,dNSName=example.com,iPAddress=10.2.3' .
-	    '.4,iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', 'verify subjectAltName' );
+	    '.4,iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', 'subjectAltName' );
     };
 
-subtest "verify subjectAltname" => sub {
+subtest "subjectAltname" => sub {
     plan tests => 5;
 
     my $altname = $decoded->extensionValue('subjectAltName');
@@ -331,31 +410,37 @@ subtest "verify subjectAltname" => sub {
 		     'iPAddress' => '2001:0DB8:0741:0000:0000:0000:0000:0000'
 		    }
 		   ];
-    is_deeply( $correct, $altname, 'verify structure returned as extension' );
+    is_deeply( $correct, $altname, 'structure returned as extension' );
 
-    is( $decoded->subjectAltName, 'rfc822Name:noway@none.com,uniformResourceIdentifier:https://fred.example.net,rfc822Name:someday@nowhere.example.com,dNSName:www.example.net,dNSName:www.example.com,dNSName:example.net,dNSName:example.com,iPAddress:10.2.3.4,iPAddress:2001:0DB8:0741:0000:0000:0000:0000:0000', "verify subjectAltName returns string in scalar context" );
+    is( $decoded->subjectAltName, 'rfc822Name:noway@none.com,' .
+	'uniformResourceIdentifier:https://fred.example.net,rfc822Name:someday@nowhere.example.com,' .
+	'dNSName:www.example.net,dNSName:www.example.com,dNSName:example.net,dNSName:example.com,' .
+	'iPAddress:10.2.3.4,iPAddress:2001:0DB8:0741:0000:0000:0000:0000:0000',
+	"subjectAltName returns string in scalar context" );
 
-    is( join( ',', sort $decoded->subjectAltName ), 'dNSName,iPAddress,rfc822Name,uniformResourceIdentifier', 'verify component list' );
+    is( join( ',', sort $decoded->subjectAltName ), 'dNSName,iPAddress,rfc822Name,uniformResourceIdentifier',
+	'component list' );
 
-    is( join( ',', $decoded->subjectAltName( 'iPAddress' )), '10.2.3.4,2001:0DB8:0741:0000:0000:0000:0000:0000', 'verify IP address list selection' );
+    is( join( ',', $decoded->subjectAltName( 'iPAddress' )),
+	'10.2.3.4,2001:0DB8:0741:0000:0000:0000:0000:0000', 'IP address list selection' );
 
-    is( $decoded->subjectAltName( 'iPAddress' ), '10.2.3.4', 'verify extraction of first IP address' );
+    is( $decoded->subjectAltName( 'iPAddress' ), '10.2.3.4', 'extraction of first IP address' );
 };
 
-subtest 'verify oid mapping' => sub {
+subtest 'oid mapping' => sub {
     plan tests => 4;
 
-    is( Crypt::PKCS10->name2oid( 'houseIdentifier' ), '2.5.4.51', 'verify name2oid main table' );
-    is( Crypt::PKCS10->name2oid( 'timeStamping' ), '1.3.6.1.5.5.7.3.8', 'verify name2oid extKeyUsages' );
+    is( Crypt::PKCS10->name2oid( 'houseIdentifier' ), '2.5.4.51', 'name2oid main table' );
+    is( Crypt::PKCS10->name2oid( 'timeStamping' ), '1.3.6.1.5.5.7.3.8', 'name2oid extKeyUsages' );
 
-    is( Crypt::PKCS10->oid2name( '2.5.4.51' ), 'houseIdentifier', 'verify oid2name main table' );
-    is( Crypt::PKCS10->oid2name( '1.3.6.1.5.5.7.3.8' ), 'timeStamping', 'verify oid2name extKeyUsages' );
+    is( Crypt::PKCS10->oid2name( '2.5.4.51' ), 'houseIdentifier', 'oid2name main table' );
+    is( Crypt::PKCS10->oid2name( '1.3.6.1.5.5.7.3.8' ), 'timeStamping', 'oid2name extKeyUsages' );
 };
 
-subtest 'verify Microsoft extensions' => sub {
+subtest 'Microsoft extensions' => sub {
     plan tests => 10;
 
-    my $file = File::Spec->catfile( dirname( $0 ), 'csr2.pem' );
+    my $file = File::Spec->catpath( @dirpath, 'csr2.pem' );
 
     if( open( my $csr, '<', $file ) ) {
 	$decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
@@ -365,16 +450,18 @@ subtest 'verify Microsoft extensions' => sub {
 
     isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
 
-    is( scalar $decoded->subject, '/O=TestOrg/CN=TestCN', 'verify subject' );
+    is( scalar $decoded->subject, '/O=TestOrg/CN=TestCN', 'subject' );
     is_deeply( [ $decoded->attributes ],
 	       [
 		'ENROLLMENT_CSP_PROVIDER',
 		'ENROLLMENT_NAME_VALUE_PAIR',
 		'ClientInformation',
 		'OS_Version'
-	       ], 'verify attributes list' );
+	       ], 'attributes list' );
 
-    is( scalar $decoded->attributes( 'ENROLLMENT_CSP_PROVIDER' ), 'cspName="Microsoft Strong Cryptographic Provider",keySpec=2,signature=("",0)', 'verify ENROLLMENT_CSP_PROVIDER string ' );
+    is( scalar $decoded->attributes( 'ENROLLMENT_CSP_PROVIDER' ),
+	'cspName="Microsoft Strong Cryptographic Provider",keySpec=2,signature=("",0)',
+	'ENROLLMENT_CSP_PROVIDER string ' );
     is_deeply( $decoded->attributes( 'ENROLLMENT_CSP_PROVIDER' ),
 	       {
 		'cspName' => 'Microsoft Strong Cryptographic Provider',
@@ -385,25 +472,26 @@ subtest 'verify Microsoft extensions' => sub {
 			       ]
 	       }, 'ENROLLMENT_CSP_PROVIDER hash' );
 
-    is( scalar $decoded->attributes('ENROLLMENT_NAME_VALUE_PAIR'), 'name=CertificateTemplate,value=User', 'verify ENROLLMENT_NAME_VALUE_PAIR string' );
+    is( scalar $decoded->attributes('ENROLLMENT_NAME_VALUE_PAIR'),
+	'name=CertificateTemplate,value=User', 'ENROLLMENT_NAME_VALUE_PAIR string' );
     is_deeply( $decoded->attributes('ENROLLMENT_NAME_VALUE_PAIR'),
 	       {
 		'name' => 'CertificateTemplate',
 		'value' => 'User'
-	       }, 'verify ENROLLMENT_NAME_VALUE_PAIR hash' );
+	       }, 'ENROLLMENT_NAME_VALUE_PAIR hash' );
 
     is( scalar $decoded->attributes('ClientInformation'),
 	'MachineName=Scream,ProcessName=certreq,UserName="Scream\\\\timothe",clientId=9',
-	'verify ClientInformation string' );
+	'ClientInformation string' );
     is_deeply( $decoded->attributes('ClientInformation'),
 	       {
 		'MachineName' => 'Scream',
 		'ProcessName' => 'certreq',
 		'UserName' => 'Scream\\timothe',
 		'clientId' => 9
-	       }, 'verify ClientInformation hash' );
+	       }, 'ClientInformation hash' );
 
-    is( scalar $decoded->attributes( 'OS_Version' ), '6.1.7601.2', 'verify OS_Version' );
+    is( scalar $decoded->attributes( 'OS_Version' ), '6.1.7601.2', 'OS_Version' );
 };
 
     # registerOID test needed
