@@ -47,3 +47,4 @@ Crypt-PKCS10-*
 Commitlog
 .build*
 *.tmp
+SIGNATURE

@@ -50,6 +50,8 @@
       "test" : {
          "requires" : {
             "File::Spec" : "0",
+            "Module::Signature" : "0",
+            "Socket" : "0",
             "Test::More" : "0.94",
             "perl" : "5.008008"
          }
@@ -58,16 +60,16 @@
    "provides" : {
       "Crypt::PKCS10" : {
          "file" : "lib/Crypt/PKCS10.pm",
-         "version" : "1.404"
+         "version" : "1.405"
       }
    },
-   "release_status" : "testing",
+   "release_status" : "stable",
    "resources" : {
       "repository" : {
          "url" : "https://github.com/gknocke/Crypt-PKCS10"
       }
    },
-   "version" : "1.404",
+   "version" : "1.405",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"
@@ -342,6 +344,11 @@
             "version" : "5.043"
          },
          {
+            "class" : "Dist::Zilla::Plugin::Signature",
+            "name" : "Signature",
+            "version" : "1.100930"
+         },
+         {
             "class" : "Dist::Zilla::Plugin::TestRelease",
             "name" : "TestRelease",
             "version" : "5.043"
@@ -415,7 +422,7 @@
       "zilla" : {
          "class" : "Dist::Zilla::Dist::Builder",
          "config" : {
-            "is_trial" : "1"
+            "is_trial" : "0"
          },
          "version" : "5.043"
       }

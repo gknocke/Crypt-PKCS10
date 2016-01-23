@@ -9,6 +9,8 @@ Install Dist::Zilla::Plugin::CopyFilesFromBuild
 Install Dist::Zilla::Plugin::MetaProvides::Package
 Install Dist::Zilla::Plugin::MinimumPerl
 Install Dist::Zilla::Plugin::Run
+Install Dist::Zilla::Plugin::Signature # If you plan to sign your distributions.
+                                       # Otherwise, comment-out the [Signature] in dist.ini
 Install Pod::Readme
 
 Update the version number in lib/PKCS10.pm

@@ -8,8 +8,10 @@ META.json
 META.yml
 Makefile.PL
 README
+SIGNATURE
 dist.ini
 lib/Crypt/PKCS10.pm
+t/0-signature.t
 t/00_base.t
 t/csr1.cer
 t/csr1.pem

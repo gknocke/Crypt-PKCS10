@@ -79,4 +79,8 @@ Revision history for perl module Crypt::PKCS10
  - Build Kwalitee issues: Minimum Perl version, Repo location, and Provides in META
  - Fix test issues due to hash randomization on newer Perl versions.
 
+1.4_05
+ - Sign distribution kits
+ - Remove execute permissions from text files
+
 __END__

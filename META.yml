@@ -5,7 +5,9 @@ author:
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
   File::Spec: 0
+  Module::Signature: 0
   Pod::Readme: 0.11
+  Socket: 0
   Test::More: 0.94
   perl: 5.008008
 configure_requires:
@@ -21,7 +23,7 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.404
+    version: 1.405
 requires:
   Carp: 0
   Convert::ASN1: 0.27
@@ -35,7 +37,7 @@ requires:
   warnings: 0
 resources:
   repository: https://github.com/gknocke/Crypt-PKCS10
-version: 1.404
+version: 1.405
 x_Dist_Zilla:
   perl:
     version: 5.008008
@@ -249,6 +251,10 @@ x_Dist_Zilla:
       name: Manifest
       version: 5.043
     -
+      class: Dist::Zilla::Plugin::Signature
+      name: Signature
+      version: 1.100930
+    -
       class: Dist::Zilla::Plugin::TestRelease
       name: TestRelease
       version: 5.043
@@ -307,5 +313,5 @@ x_Dist_Zilla:
   zilla:
     class: Dist::Zilla::Dist::Builder
     config:
-      is_trial: 1
+      is_trial: 0
     version: 5.043

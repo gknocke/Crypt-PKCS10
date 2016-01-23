@@ -32,9 +32,11 @@ my %WriteMakefileArgs = (
   },
   "TEST_REQUIRES" => {
     "File::Spec" => 0,
+    "Module::Signature" => 0,
+    "Socket" => 0,
     "Test::More" => "0.94"
   },
-  "VERSION" => "1.404",
+  "VERSION" => "1.405",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -47,8 +49,10 @@ my %FallbackPrereqs = (
   "Encode" => 0,
   "File::Spec" => 0,
   "MIME::Base64" => 0,
+  "Module::Signature" => 0,
   "Pod::Readme" => "0.11",
   "Scalar::Util" => 0,
+  "Socket" => 0,
   "Test::More" => "0.94",
   "bytes" => 0,
   "overload" => 0,
