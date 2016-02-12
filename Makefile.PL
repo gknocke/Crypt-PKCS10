@@ -9,9 +9,6 @@ use ExtUtils::MakeMaker;
 my %WriteMakefileArgs = (
   "ABSTRACT" => "parse PKCS #10 certificate requests",
   "AUTHOR" => "Gideon Knocke <gknocke\@cpan.org>, Timothe Litt <tlhackque\@cpan.org>",
-  "BUILD_REQUIRES" => {
-    "Pod::Readme" => "0.11"
-  },
   "CONFIGURE_REQUIRES" => {
     "ExtUtils::MakeMaker" => 0
   },
@@ -31,6 +28,7 @@ my %WriteMakefileArgs = (
     "warnings" => 0
   },
   "TEST_REQUIRES" => {
+    "ExtUtils::MakeMaker" => 0,
     "File::Spec" => 0,
     "Module::Signature" => 0,
     "Socket" => 0,
@@ -47,10 +45,10 @@ my %FallbackPrereqs = (
   "Carp" => 0,
   "Convert::ASN1" => "0.27",
   "Encode" => 0,
+  "ExtUtils::MakeMaker" => 0,
   "File::Spec" => 0,
   "MIME::Base64" => 0,
   "Module::Signature" => 0,
-  "Pod::Readme" => "0.11",
   "Scalar::Util" => 0,
   "Socket" => 0,
   "Test::More" => "0.94",

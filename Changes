@@ -82,5 +82,9 @@ Revision history for perl module Crypt::PKCS10
 1.4_05
  - Sign distribution kits
  - Remove execute permissions from text files
+ - Generate Markdown format README for github
+ - Use Pod::Weaver to manage authorship, copyright from dist.ini
+ - Add prerequisites display test
+ - Validate with perlcritic, pod syntax
 
 __END__

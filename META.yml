@@ -4,9 +4,9 @@ author:
   - 'Gideon Knocke <gknocke@cpan.org>'
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
+  ExtUtils::MakeMaker: 0
   File::Spec: 0
   Module::Signature: 0
-  Pod::Readme: 0.11
   Socket: 0
   Test::More: 0.94
   perl: 5.008008
@@ -36,7 +36,8 @@ requires:
   strict: 0
   warnings: 0
 resources:
-  repository: https://github.com/gknocke/Crypt-PKCS10
+  bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
+  repository: https://github.com/gknocke/Crypt-PKCS10.git
 version: 1.405
 x_Dist_Zilla:
   perl:
@@ -52,7 +53,8 @@ x_Dist_Zilla:
             - "echo \"Commit log for %n, most recent first\" >Commitlog"
             - "echo \"\" >>Commitlog"
             - "git log --format=\"- %%s%%n\" >>Commitlog"
-            - 'pod2readme lib%pCrypt%pPKCS10.pm'
+            - './runbrew pod2readme lib%pCrypt%pPKCS10.pm'
+            - './runbrew pod2readme -f markdown lib%pCrypt%pPKCS10.pm'
       name: Run::BeforeBuild
       version: 0.042
     -
@@ -136,6 +138,14 @@ x_Dist_Zilla:
     -
       class: Dist::Zilla::Plugin::ExtraTests
       name: ExtraTests
+      version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Test::Perl::Critic
+      name: Test::Perl::Critic
+      version: 3.000
+    -
+      class: Dist::Zilla::Plugin::PodSyntaxTests
+      name: PodSyntaxTests
       version: 5.043
     -
       class: Dist::Zilla::Plugin::ExecDir
@@ -224,6 +234,10 @@ x_Dist_Zilla:
               class: Pod::Weaver::Section::Legal
               name: '@Default/Legal'
               version: 4.012
+            -
+              class: Pod::Weaver::Section::Bugs
+              name: Bugs
+              version: 4.012
       name: PodWeaver
       version: 4.006
     -
@@ -242,10 +256,14 @@ x_Dist_Zilla:
       class: Dist::Zilla::Plugin::Prereqs
       config:
         Dist::Zilla::Plugin::Prereqs:
-          phase: build
+          phase: develop
           type: requires
-      name: BuildRequires
+      name: DevelopRequires
       version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Test::ReportPrereqs
+      name: Test::ReportPrereqs
+      version: 0.021
     -
       class: Dist::Zilla::Plugin::Manifest
       name: Manifest
