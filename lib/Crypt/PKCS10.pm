@@ -1640,6 +1640,8 @@ See the I<Table of known OID names> below for a list of names.
 
 See the module documentation for a list of known OID names.
 
+It is too long to include here.
+
 =end :readme
 
 =head2 extensions
@@ -1682,6 +1684,8 @@ See the I<Table of known OID names> below for a list of names.
 
 See the module documentation for a list of known OID names.
 
+It is too long to include here.
+
 =end :readme
 
 =head2 extensionPresent( $name )
@@ -1703,6 +1707,8 @@ See the I<Table of known OID names> below for a list of names.
 =begin :readme
 
 See the module documentation for a list of known OID names.
+
+It is too long to include here.
 
 =end :readme
 
@@ -1901,40 +1907,5 @@ Timothe Litt made most of the changes for V1.4
 C<Crypt::PKCS10> is based on the generic ASN.1 module by Graham Barr and on the
  x509decode example by Norbert Klasen. It is also based upon the
 works of Duncan Segrest's C<Crypt-X509-CRL> module.
-
-=begin :readme
-
-=head1 AUTHORS
-
-=over 4
-
-=item *
-
-Gideon Knocke <gknocke@cpan.org>
-
-=item *
-
-Timothe Litt <tlhackque@cpan.org>
-
-=back
-
-=head1 COPYRIGHT AND LICENSE
-
-This software is copyright (c) 2014, 2016 by Gideon Knocke, Timothe Litt.
-
-This is free software; you can redistribute it and/or modify it under
-the same terms as the Perl 5 programming language system itself.
-
-=head1 BUG REPORTS
-
-Please report any bugs or feature requests on the bugtracker website
-https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10 or by email
-to bug-crypt-pkcs10@rt.cpan.org.
-
-When submitting a bug or request, please include a test-file or a
-patch to an existing test-file that illustrates the bug or desired
-feature.
-
-=end :readme
 
 =cut

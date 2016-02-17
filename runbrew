@@ -12,8 +12,24 @@
 use warnings;
 use strict;
 
+use Cwd qw/getcwd/;
+
 use Sort::Versions;
 
+my $wd;
+
+END {
+    if( $wd ) {
+        chdir( $wd ) or die( "Can't chdir to $wd: $!\n" );
+    }
+}
+
+if( @ARGV && $ARGV[0] eq '-in' && $ARGV[1] ) {
+    shift;
+    my $in = shift;
+    $wd = getcwd;
+    chdir( $in ) or die( "Can't chdir to $in: $!\n" );
+}
 
 #my $cmd = join( ' ', @ARGV );
 

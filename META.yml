@@ -53,10 +53,9 @@ x_Dist_Zilla:
             - "echo \"Commit log for %n, most recent first\" >Commitlog"
             - "echo \"\" >>Commitlog"
             - "git log --format=\"- %%s%%n\" >>Commitlog"
-            - './runbrew pod2readme lib%pCrypt%pPKCS10.pm'
-            - './runbrew pod2readme -f markdown lib%pCrypt%pPKCS10.pm'
+            - 'rm -f README README.md; touch README README.md'
       name: Run::BeforeBuild
-      version: 0.042
+      version: 0.043
     -
       class: Dist::Zilla::Plugin::Encoding
       name: Encoding
@@ -240,6 +239,18 @@ x_Dist_Zilla:
               version: 4.012
       name: PodWeaver
       version: 4.006
+    -
+      class: Dist::Zilla::Plugin::Run::BeforeArchive
+      config:
+        Dist::Zilla::Plugin::Run::Role::Runner:
+          fatal_errors: 1
+          quiet: 0
+          run:
+            - "sed -i -e'/^=head1 AUTHOR/i=for readme start\\n\\n' %d%plib%pCrypt%pPKCS10.pm"
+            - './runbrew -in %d pod2readme -F             lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME .'
+            - './runbrew -in %d pod2readme -F -f markdown lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME.md .'
+      name: Run::BeforeArchive
+      version: 0.043
     -
       class: Dist::Zilla::Plugin::AutoPrereqs
       name: AutoPrereqs
