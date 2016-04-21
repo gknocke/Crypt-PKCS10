@@ -87,4 +87,10 @@ Revision history for perl module Crypt::PKCS10
  - Add prerequisites display test
  - Validate with perlcritic, pod syntax
 
+1.5
+ - Uncoordinated release of 1.4_04
+
+1.6
+ - Official release of 1.4_05
+
 __END__
