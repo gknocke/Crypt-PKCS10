@@ -71,6 +71,11 @@ my %oids = (
     '2.5.29.19'                     => [ 'basicConstraints', 'Basic Constraints' ],
     '1.2.840.10040.4.1'             => [ 'dsa', 'DSA' ],
     '1.2.840.10040.4.3'             => [ 'dsaWithSha1', 'DSA with SHA1' ],
+    '1.2.840.10045.2.1'             => 'ecPublicKey',
+    '1.2.840.10045.4.3.1'           => 'ecdsa-with-SHA224',
+    '1.2.840.10045.4.3.2'           => 'ecdsa-with-SHA256',
+    '1.2.840.10045.4.3.3'           => 'ecdsa-with-SHA384',
+    '1.2.840.10045.4.3.4'           => 'ecdsa-with-SHA512',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
     '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
@@ -433,7 +438,7 @@ sub _new {
 
     AlgorithmIdentifier ::= SEQUENCE {
       algorithm  OBJECT IDENTIFIER,
-      parameters Algorithms}
+      parameters Algorithms OPTIONAL}
 
     SubjectPublicKeyInfo ::= SEQUENCE {
       algorithm        AlgorithmIdentifier,
