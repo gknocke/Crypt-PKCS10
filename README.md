@@ -553,6 +553,20 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
 
     
 
+    1.5
+
+     - Uncoordinated release of 1.4_04
+
+    
+
+    1.6
+
+     - Support some EC OIDs
+
+    
+
+    
+
 For a more detailed list of changes, see `Commitlog` in the distribution.
 
 # EXAMPLES
@@ -572,7 +586,9 @@ realistic certificate requests.
 
 # ACKNOWLEDGEMENTS
 
-Timothe Litt made most of the changes for V1.4
+Martin Bartosch contributed the OIDs and tests for EC support.
+
+Timothe Litt made most of the changes for V1.4+
 
 `Crypt::PKCS10` is based on the generic ASN.1 module by Graham Barr and on the
  x509decode example by Norbert Klasen. It is also based upon the

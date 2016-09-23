@@ -91,6 +91,7 @@ Revision history for perl module Crypt::PKCS10
  - Uncoordinated release of 1.4_04
 
 1.6
- - Official release of 1.4_05
+ - Support some EC OIDs
+
 
 __END__

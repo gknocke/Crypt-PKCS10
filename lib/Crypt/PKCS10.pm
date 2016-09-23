@@ -1778,6 +1778,11 @@ B<registerOID>.
  0.9.2342.19200300.100.1.25 domainComponent
  1.2.840.10040.4.1          dsa                        (DSA)
  1.2.840.10040.4.3          dsaWithSha1                (DSA with SHA1)
+ 1.2.840.10045.2.1          ecPublicKey
+ 1.2.840.10045.4.3.1        ecdsa-with-SHA224
+ 1.2.840.10045.4.3.2        ecdsa-with-SHA256
+ 1.2.840.10045.4.3.3        ecdsa-with-SHA384
+ 1.2.840.10045.4.3.4        ecdsa-with-SHA512
  1.2.840.113549.1.1.1       rsaEncryption              (RSA encryption)
  1.2.840.113549.1.1.2       md2WithRSAEncryption       (MD2 with RSA encryption)
  1.2.840.113549.1.1.3       md4WithRSAEncryption
@@ -1907,7 +1912,9 @@ realistic certificate requests.
 
 =head1 ACKNOWLEDGEMENTS
 
-Timothe Litt made most of the changes for V1.4
+Martin Bartosch contributed the OIDs and tests for EC support.
+
+Timothe Litt made most of the changes for V1.4+
 
 C<Crypt::PKCS10> is based on the generic ASN.1 module by Graham Barr and on the
  x509decode example by Norbert Klasen. It is also based upon the
