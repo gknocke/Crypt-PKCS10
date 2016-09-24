@@ -93,5 +93,7 @@ Revision history for perl module Crypt::PKCS10
 1.6
  - Support some EC OIDs
 
+1.6_01
+ - ECC test doesn't require Data::Dumper
 
 __END__

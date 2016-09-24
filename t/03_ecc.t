@@ -22,7 +22,6 @@ use Test::More 0.94 tests => 10;
 
 use File::Spec;
 use Crypt::PKCS10;
-use Data::Dumper;
 
 ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
 
