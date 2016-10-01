@@ -95,5 +95,8 @@ Revision history for perl module Crypt::PKCS10
 
 1.6_01
  - ECC test doesn't require Data::Dumper
+ - Support more EC OIDs
+ - Add DSA OIDs
+ - Add subjectPublicKeyParams(), which provides some description of the key
 
 __END__

@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.6
+version 1.601
 
 # SYNOPSIS
 
@@ -250,6 +250,15 @@ Returns the public key algorithm according to its object identifier.
 If `$format` is **true**, the public key will be returned in PEM format.
 
 Otherwise, the public key will be returned in its hexadecimal representation
+
+## subjectPublicKeyParams
+
+Returns a hash describing the public key.  The contents may vary depending on
+the public key type.
+
+`keytype` - ECC, RSA, DSA
+
+`keylen` - Length of the key in bits.
 
 ## signatureAlgorithm
 
@@ -564,6 +573,16 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Support some EC OIDs
 
     
+
+    1.6_01
+
+     - ECC test doesn't require Data::Dumper
+
+     - Support more EC OIDs
+
+     - Add DSA OIDs
+
+     - Add subjectPublicKeyParams(), which provides some description of the key
 
     
 

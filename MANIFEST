@@ -24,5 +24,7 @@ t/csr1.cer
 t/csr1.pem
 t/csr2.pem
 t/csr4.pem
+t/csr5.pem
+t/csr6.pem
 weaver.ini
 xt/01_Kwalitee.t

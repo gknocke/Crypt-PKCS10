@@ -4,7 +4,7 @@ NAME
 
 VERSION
 
-    version 1.6
+    version 1.601
 
 SYNOPSIS
 
@@ -278,6 +278,15 @@ METHODS
 
     Otherwise, the public key will be returned in its hexadecimal
     representation
+
+ subjectPublicKeyParams
+
+    Returns a hash describing the public key. The contents may vary
+    depending on the public key type.
+
+    keytype - ECC, RSA, DSA
+
+    keylen - Length of the key in bits.
 
  signatureAlgorithm
 
@@ -604,6 +613,16 @@ CHANGES
        - Support some EC OIDs
     
       
+    
+      1.6_01
+    
+       - ECC test doesn't require Data::Dumper
+    
+       - Support more EC OIDs
+    
+       - Add DSA OIDs
+    
+       - Add subjectPublicKeyParams(), which provides some description of the key
     
       
 

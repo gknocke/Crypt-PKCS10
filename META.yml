@@ -4,7 +4,6 @@ author:
   - 'Gideon Knocke <gknocke@cpan.org>'
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
-  Data::Dumper: 0
   ExtUtils::MakeMaker: 0
   File::Spec: 0
   Module::Signature: 0
@@ -24,7 +23,7 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.6
+    version: 1.601
 requires:
   Carp: 0
   Convert::ASN1: 0.27
@@ -39,7 +38,7 @@ requires:
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
   repository: https://github.com/gknocke/Crypt-PKCS10.git
-version: 1.6
+version: 1.601
 x_Dist_Zilla:
   perl:
     version: 5.008008

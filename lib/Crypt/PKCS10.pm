@@ -76,6 +76,25 @@ my %oids = (
     '1.2.840.10045.4.3.2'           => 'ecdsa-with-SHA256',
     '1.2.840.10045.4.3.3'           => 'ecdsa-with-SHA384',
     '1.2.840.10045.4.3.4'           => 'ecdsa-with-SHA512',
+    '1.3.36.3.3.2.8.1.1.1'          => 'brainpoolP160r1',
+    '1.3.36.3.3.2.8.1.1.2'          => 'brainpoolP160t1',
+    '1.3.36.3.3.2.8.1.1.3'          => 'brainpoolP192r1',
+    '1.3.36.3.3.2.8.1.1.4'          => 'brainpoolP192t1',
+    '1.3.36.3.3.2.8.1.1.5'          => 'brainpoolP224r1',
+    '1.3.36.3.3.2.8.1.1.6'          => 'brainpoolP224t1',
+    '1.3.36.3.3.2.8.1.1.7'          => 'brainpoolP256r1',
+    '1.3.36.3.3.2.8.1.1.8'          => 'brainpoolP256t1',
+    '1.3.36.3.3.2.8.1.1.9'          => 'brainpoolP320r1',
+    '1.3.36.3.3.2.8.1.1.10'         => 'brainpoolP320t1',
+    '1.3.36.3.3.2.8.1.1.11'         => 'brainpoolP384r1',
+    '1.3.36.3.3.2.8.1.1.12'         => 'brainpoolP384t1',
+    '1.3.36.3.3.2.8.1.1.13'         => 'brainpoolP512r1',
+    '1.3.36.3.3.2.8.1.1.14'         => 'brainpoolP512t1',
+    '1.2.840.10045.3.1.1'           => 'secp192r1',
+    '1.3.132.0.33'                  => 'secp224r1',
+    '1.2.840.10045.3.1.7'           => 'secp256r1',
+    '1.3.132.0.34'                  => 'secp384r1',
+    '1.3.132.0.35'                  => 'secp521r1',
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
     '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
@@ -96,6 +115,13 @@ my %oids = (
     '1.3.6.1.5.2.3.5'               => [ 'keyPurposeKdc', 'KDC Authentication' ],
     '1.3.6.1.5.5.7.9.5'             => 'countryOfResidence',
     '2.16.840.1.101.3.4.2.1'        => [ 'sha256', 'SHA-256' ],
+    '2.16.840.1.101.3.4.2.2'        => [ 'sha384', 'SHA-384' ],
+    '2.16.840.1.101.3.4.2.3'        => [ 'sha512', 'SHA-512' ],
+    '2.16.840.1.101.3.4.2.4'        => [ 'sha224', 'SHA-224' ],
+    '2.16.840.1.101.3.4.3.1'        => 'dsaWithSha224',
+    '2.16.840.1.101.3.4.3.2'        => 'dsaWithSha256',
+    '2.16.840.1.101.3.4.3.3'        => 'dsaWithSha384',
+    '2.16.840.1.101.3.4.3.4'        => 'dsaWithSha512',
     '2.5.4.12'                      => [ 'title', 'Title' ],
     '2.5.4.13'                      => [ 'description', 'Description' ],
     '2.5.4.14'                      => 'searchGuide',
@@ -420,9 +446,7 @@ sub _new {
       ia5String       IA5String,
       integer         INTEGER}
 
-    Algorithms ::= CHOICE {
-        undef         ANY
-    }
+    Algorithms ::= ANY
 
     Name ::= SEQUENCE OF RelativeDistinguishedName
     RelativeDistinguishedName ::= SET OF AttributeTypeAndValue
@@ -579,6 +603,20 @@ sub _new {
     certificateTemplateName ::= CHOICE {
         octets          OCTET STRING,
         directoryString DirectoryString}
+
+    rsaKey ::= SEQUENCE {
+        modulus         INTEGER,
+        publicExponent  INTEGER}
+
+    dsaKey  ::= INTEGER
+
+    dsaPars ::= SEQUENCE {
+        P               INTEGER,
+        Q               INTEGER,
+        G               INTEGER}
+
+    eccName ::= OBJECT IDENTIFIER
+
 ASN1
 
     $asn->registertype( 'qualifier', '1.3.6.1.5.5.7.2.1', $self->_init('CPSuri') );
@@ -589,7 +627,7 @@ ASN1
     my $top =
 	$parser->decode( $der ) or
 	  confess( "decode: " . $parser->error .
-		   "Cannot handle input or missing ASN.1 definitons" );
+		   "Cannot handle input or missing ASN.1 definitions" );
 
     $self->{certificationRequestInfo}{subject}
         = $self->_convert_rdn( $top->{certificationRequestInfo}{subject} );
@@ -680,9 +718,6 @@ sub _convert_signatureAlgorithm {
 	  if( defined $signatureAlgorithm->{algorithm}
 	    && exists $oids{$signatureAlgorithm->{algorithm}} );
 
-    if ($signatureAlgorithm->{parameters}{undef}) {
-        delete ($signatureAlgorithm->{parameters});
-    }
     return $signatureAlgorithm;
 }
 
@@ -695,9 +730,6 @@ sub _convert_pkinfo {
         = $oids{$pkinfo->{algorithm}{algorithm}}
 	  if( defined $pkinfo->{algorithm}{algorithm}
 	    && exists $oids{$pkinfo->{algorithm}{algorithm}} );
-    if ($pkinfo->{algorithm}{parameters}{undef}) {
-        delete ($pkinfo->{algorithm}{parameters});
-    }
     return $pkinfo;
 }
 
@@ -1055,6 +1087,47 @@ sub subjectPublicKey {
 
     return $self->{_pubkey} if( $format );
     return unpack('H*', $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0]);
+}
+
+sub subjectPublicKeyParams {
+    my $self = shift;
+
+    my $rv = {};
+    my $at = $self->pkAlgorithm;
+    if( $at eq 'ecPublicKey' ) {
+        $rv->{keytype} = 'ECC';
+        my( $type, $val ) = $self->subjectPublicKey =~ /^0([234])([[:xdigit:]]+)$/;
+        if( defined $type ) {
+            $rv->{keylen} = ( ($type == 4)? 2 : 4 ) * length $val; # uncompressed : compressed point
+        }
+        my $par = $self->_init( 'eccName' );
+        $rv->{curve} = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} );
+        $rv->{curve} = $self->_oid2name( $rv->{curve} );
+    } elsif( $at eq 'rsaEncryption' ) {
+        $rv->{keytype} = 'RSA';
+        my $par = $self->_init( 'rsaKey' );
+        my $rsa = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0] );
+        $rv->{keylen} = 4 * ( length( $rsa->{modulus}->as_hex ) -2 ); # 2 == length( '0x' )
+        $rv->{modulus} = substr( $rsa->{modulus}->as_hex, 2 );
+        $rv->{publicExponent} = ( ref( $rsa->{publicExponent} )?
+                                  $rsa->{publicExponent}->as_hex :
+                                  sprintf( '%x', $rsa->{publicExponent} ) );
+    } elsif( $at eq 'dsa' ) {
+        $rv->{keytype} = 'DSA';
+        my $par = $self->_init( 'dsaKey' );
+        my $dsa = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0] );
+        $rv->{keylen} = 4 * ( length( $dsa->as_hex ) -2 );
+        if( exists $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} ) {
+            $par = $self->_init('dsaPars');
+            $dsa = $par->decode($self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters});
+            $rv->{G} = substr( $dsa->{G}->as_hex, 2 );
+            $rv->{P} = substr( $dsa->{P}->as_hex, 2 );
+            $rv->{Q} = substr( $dsa->{Q}->as_hex, 2 );
+        }
+    } else {
+        $rv->{keytype} = undef;
+    }
+    return $rv;
 }
 
 sub signatureAlgorithm {
@@ -1596,6 +1669,15 @@ If C<$format> is B<true>, the public key will be returned in PEM format.
 
 Otherwise, the public key will be returned in its hexadecimal representation
 
+=head2 subjectPublicKeyParams
+
+Returns a hash describing the public key.  The contents may vary depending on
+the public key type.
+
+C<keytype> - ECC, RSA, DSA
+
+C<keylen> - Length of the key in bits.
+
 =head2 signatureAlgorithm
 
 Returns the signature algorithm according to its object identifier.
@@ -1779,6 +1861,8 @@ B<registerOID>.
  1.2.840.10040.4.1          dsa                        (DSA)
  1.2.840.10040.4.3          dsaWithSha1                (DSA with SHA1)
  1.2.840.10045.2.1          ecPublicKey
+ 1.2.840.10045.3.1.1        secp192r1
+ 1.2.840.10045.3.1.7        secp256r1
  1.2.840.10045.4.3.1        ecdsa-with-SHA224
  1.2.840.10045.4.3.2        ecdsa-with-SHA256
  1.2.840.10045.4.3.3        ecdsa-with-SHA384
@@ -1839,6 +1923,23 @@ B<registerOID>.
  1.3.6.1.5.5.7.3.22         sshServer
  1.3.6.1.5.5.7.9.5          countryOfResidence
  1.3.14.3.2.29              sha1WithRSAEncryption      (SHA1 with RSA signature)
+ 1.3.36.3.3.2.8.1.1.1       brainpoolP160r1
+ 1.3.36.3.3.2.8.1.1.2       brainpoolP160t1
+ 1.3.36.3.3.2.8.1.1.3       brainpoolP192r1
+ 1.3.36.3.3.2.8.1.1.4       brainpoolP192t1
+ 1.3.36.3.3.2.8.1.1.5       brainpoolP224r1
+ 1.3.36.3.3.2.8.1.1.6       brainpoolP224t1
+ 1.3.36.3.3.2.8.1.1.7       brainpoolP256r1
+ 1.3.36.3.3.2.8.1.1.8       brainpoolP256t1
+ 1.3.36.3.3.2.8.1.1.9       brainpoolP320r1
+ 1.3.36.3.3.2.8.1.1.10      brainpoolP320t1
+ 1.3.36.3.3.2.8.1.1.11      brainpoolP384r1
+ 1.3.36.3.3.2.8.1.1.12      brainpoolP384t1
+ 1.3.36.3.3.2.8.1.1.13      brainpoolP512r1
+ 1.3.36.3.3.2.8.1.1.14      brainpoolP512t1
+ 1.3.132.0.33               secp224r1
+ 1.3.132.0.34               secp384r1
+ 1.3.132.0.35               secp521r1
  2.5.4.3                    commonName
  2.5.4.4                    surname                    (Surname)
  2.5.4.5                    serialNumber
@@ -1874,6 +1975,13 @@ B<registerOID>.
  2.5.29.32.0                anyPolicy
  2.5.29.37                  extKeyUsage                (EnhancedKeyUsage)
  2.16.840.1.101.3.4.2.1     sha256                     (SHA-256)
+ 2.16.840.1.101.3.4.2.2     sha384                     (SHA-384)
+ 2.16.840.1.101.3.4.2.3     sha512                     (SHA-512)
+ 2.16.840.1.101.3.4.2.4     sha224                     (SHA-224)
+ 2.16.840.1.101.3.4.3.1     dsaWithSha224
+ 2.16.840.1.101.3.4.3.2     dsaWithSha256
+ 2.16.840.1.101.3.4.3.3     dsaWithSha384
+ 2.16.840.1.101.3.4.3.4     dsaWithSha512
  2.16.840.1.113730.1.1      netscapeCertType
  2.16.840.1.113730.1.2      netscapeBaseUrl
  2.16.840.1.113730.1.4      netscapeCaRevocationUrl

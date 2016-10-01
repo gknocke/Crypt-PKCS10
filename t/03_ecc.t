@@ -1,3 +1,5 @@
+# -*- mode: cperl; -*-
+
 # Elliptic curve CSR tests
 #
 # This software is copyright (c) 2014 by Gideon Knocke.
@@ -18,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 10;
+use Test::More 0.94 tests => 15;
 
 use File::Spec;
 use Crypt::PKCS10;
@@ -59,5 +61,30 @@ is( scalar $decoded->subject, '/C=AU/ST=Some-State/O=Internet Widgits Pty Ltd',
 
 is( $decoded->pkAlgorithm, 'ecPublicKey', 'encryption algorithm' );
 
+is_deeply( $decoded->subjectPublicKeyParams,
+           {keytype => 'ECC',
+            keylen => 256,
+            curve => 'brainpoolP256r1',
+           }, 'subjectPublicKeyParams' );
+
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA256', 'signature algorithm' );
 
+$file = File::Spec->catpath( @dirpath, 'csr6.pem' );
+
+if( open( my $csr, '<', $file ) ) {
+    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
+} else {
+    BAIL_OUT( "$file: $!\n" );;
+}
+
+isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+is( $decoded->pkAlgorithm, 'ecPublicKey', 'encryption algorithm' );
+
+is_deeply( $decoded->subjectPublicKeyParams,
+           {keytype => 'ECC',
+            keylen => 384,
+            curve => 'secp384r1',
+           }, 'subjectPublicKeyParams' );
+
+is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );
