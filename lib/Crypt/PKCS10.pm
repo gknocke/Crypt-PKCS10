@@ -91,10 +91,23 @@ my %oids = (
     '1.3.36.3.3.2.8.1.1.13'         => 'brainpoolP512r1',
     '1.3.36.3.3.2.8.1.1.14'         => 'brainpoolP512t1',
     '1.2.840.10045.3.1.1'           => 'secp192r1',
+    '1.3.132.0.1'                   => 'sect163k1',
+    '1.3.132.0.15'                  => 'sect163r2',
     '1.3.132.0.33'                  => 'secp224r1',
+    '1.3.132.0.26'                  => 'sect233k1',
+    '1.3.132.0.27'                  => 'sect233r1',
+    '1.3.132.0.16'                  => 'sect283k1',
+    '1.3.132.0.17'                  => 'sect283r1',
     '1.2.840.10045.3.1.7'           => 'secp256r1',
     '1.3.132.0.34'                  => 'secp384r1',
+    '1.3.132.0.36'                  => 'sect409k1',
+    '1.3.132.0.37'                  => 'sect409r1',
     '1.3.132.0.35'                  => 'secp521r1',
+    '1.3.132.0.38'                  => 'sect571k1',
+    '1.3.132.0.39'                  => 'sect571r1',
+#not std yet    '1.3.6.1.4.1.3029.1.5.1'        => 'curve25519', # GNU TLS
+#   '1.3.6.1.4.1.11591.7'           => 'curve25519', #ID josefsson-pkix-newcurves-00
+#   '1.3.6.1.4.1.11591.8'           => 'curve448', #ID josefsson-pkix-newcurves-00
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
     '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
@@ -1676,7 +1689,7 @@ the public key type.
 
 C<keytype> - ECC, RSA, DSA
 
-C<keylen> - Length of the key in bits.
+C<keylen> - Approximate length of the key in bits.
 
 =head2 signatureAlgorithm
 
@@ -1937,9 +1950,19 @@ B<registerOID>.
  1.3.36.3.3.2.8.1.1.12      brainpoolP384t1
  1.3.36.3.3.2.8.1.1.13      brainpoolP512r1
  1.3.36.3.3.2.8.1.1.14      brainpoolP512t1
+ 1.3.132.0.1                sect163k1
+ 1.3.132.0.15               sect163r2
+ 1.3.132.0.16               sect283k1
+ 1.3.132.0.17               sect283r1
+ 1.3.132.0.26               sect233k1
+ 1.3.132.0.27               sect233r1
  1.3.132.0.33               secp224r1
  1.3.132.0.34               secp384r1
  1.3.132.0.35               secp521r1
+ 1.3.132.0.36               sect409k1
+ 1.3.132.0.37               sect409r1
+ 1.3.132.0.38               sect571k1
+ 1.3.132.0.39               sect571r1
  2.5.4.3                    commonName
  2.5.4.4                    surname                    (Surname)
  2.5.4.5                    serialNumber

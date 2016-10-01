@@ -258,7 +258,7 @@ the public key type.
 
 `keytype` - ECC, RSA, DSA
 
-`keylen` - Length of the key in bits.
+`keylen` - Approximate length of the key in bits.
 
 ## signatureAlgorithm
 

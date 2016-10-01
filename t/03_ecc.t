@@ -65,7 +65,7 @@ is_deeply( $decoded->subjectPublicKeyParams,
            {keytype => 'ECC',
             keylen => 256,
             curve => 'brainpoolP256r1',
-           }, 'subjectPublicKeyParams' );
+           }, 'subjectPublicKeyParams(EC brainpool)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA256', 'signature algorithm' );
 
@@ -85,6 +85,6 @@ is_deeply( $decoded->subjectPublicKeyParams,
            {keytype => 'ECC',
             keylen => 384,
             curve => 'secp384r1',
-           }, 'subjectPublicKeyParams' );
+           }, 'subjectPublicKeyParams(EC secp)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );
