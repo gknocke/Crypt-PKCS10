@@ -32,7 +32,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 25;
+    plan tests => 26;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -198,6 +198,8 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     #is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
     is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'signature algorithm' );
+
+    is( $decoded->signatureParams, undef, 'signature parameters' ); # RSA is NULL
 
     my $key = Crypt::OpenSSL::RSA->new_public_key( $decoded->subjectPublicKey(1) );
     $key->use_sha256_hash;

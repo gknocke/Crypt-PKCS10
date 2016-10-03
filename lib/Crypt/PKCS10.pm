@@ -1164,6 +1164,21 @@ sub signatureAlgorithm {
     return $self->{signatureAlgorithm}{algorithm};
 }
 
+sub signatureParams {
+    my $self = shift;
+
+    if( exists $self->{signatureAlgorithm}{parameters} ) {
+        my( $tlen, undef, $tag ) = asn_decode_tag2( $self->{signatureAlgorithm}{parameters} );
+        if( $tlen != 0 && $tag != ASN_NULL ) {
+            return $self->{signatureAlgorithm}{parameters}
+        }
+    }
+    # Known algorithm's parameters MAY return a hash of decoded fields.
+    # For now, leaving that to the caller...
+
+    return;
+}
+
 sub signature {
     my $self = shift;
     my $format = shift;
@@ -1725,6 +1740,15 @@ C<keylen> - Approximate length of the key in bits.
 =head2 signatureAlgorithm
 
 Returns the signature algorithm according to its object identifier.
+
+=head2 signatureParams
+
+Returns the parameters associated with the B<signatureAlgorithm> as binary.
+Returns B<undef> if none, or if B<NULL>.
+
+Note: In the future, some B<signatureAlgorithm>s may return a hashref of decoded fields.
+
+Callers are advised to check for a ref before decoding...
 
 =head2 signature( $format )
 

@@ -270,6 +270,15 @@ the public key type.
 
 Returns the signature algorithm according to its object identifier.
 
+## signatureParams
+
+Returns the parameters associated with the **signatureAlgorithm** as binary.
+Returns **undef** if none, or if **NULL**.
+
+Note: In the future, some **signatureAlgorithm**s may return a hashref of decoded fields.
+
+Callers are advised to check for a ref before decoding...
+
 ## signature( $format )
 
 The CSR's signature is returned.
@@ -595,6 +604,8 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Add subjectPublicKeyParams(), which provides some description of the key
 
      - Add certificationRequest and signature(1) to enable verification of CSR signatures
+
+     - Add signatureParams()
 
     
 
