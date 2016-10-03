@@ -100,5 +100,6 @@ Revision history for perl module Crypt::PKCS10
  - Add subjectPublicKeyParams(), which provides some description of the key
  - Add certificationRequest and signature(1) to enable verification of CSR signatures
  - Add signatureParams()
+ - Add signature(2) to extract ECDSA signature components.
 
 __END__

@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 15;
+use Test::More 0.94 tests => 16;
 
 use File::Spec;
 use Crypt::PKCS10;
@@ -68,6 +68,38 @@ is_deeply( $decoded->subjectPublicKeyParams,
            }, 'subjectPublicKeyParams(EC brainpool)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA256', 'signature algorithm' );
+
+my $sig = $decoded->signature( 2 );
+ok( defined $sig &&
+    substr( $sig->{r}->as_hex, 2 ) eq '730d25ebe5f187c607577cc106d3141dc7f90827914f2a6a11ebc9de6fdf1d26' &&
+    substr( $sig->{s}->as_hex, 2 ) eq '42c02e4819f2c16c56181205c6c2176902f20cbfcfdc1fa82b30f79bd15d2172',
+    'ECDSA signature components' );
+
+my $broken = <<'XXX'; # Add (at least) 2 tests
+use Crypt::OpenSSL::ECDSA;
+use Crypt::OpenSSL::EC;
+use Digest::SHA qw/sha256/;
+
+my $ecdsa = Crypt::OpenSSL::ECDSA::ECDSA_SIG->new();
+isnt( $ecdsa, undef, 'ECDSA init' );
+
+my $r = pack( 'H*', substr( $sig->{r}->as_hex, 2 ) );
+my $s = pack( 'H*', substr( $sig->{s}->as_hex, 2 ) );
+$ecdsa->set_r( $r );
+$ecdsa->set_s( $s );
+
+my $oid = $decoded->name2oid($decoded->subjectPublicKeyParams->{curve});
+
+# Need to convert OID (1.2.3.4) to OpenSSL index
+
+my $key = Crypt::OpenSSL::EC::EC_KEY::new_by_curve_name(xx($oid));
+
+# Need to convert public key into an EC_POINT - without parsing it
+
+Crypt::OpenSSL::EC::EC_KEY::set_public_key( $key,'xxx' ) or croak( "Failed to create key" );
+
+ok( Crypt::OpenSSL::ECDSA::ECDSA_do_verify( sha256( $decoded->certificationRequest ), $ecdsa, $key ), 'verify CSR signature' );
+XXX
 
 $file = File::Spec->catpath( @dirpath, 'csr6.pem' );
 

@@ -283,7 +283,9 @@ Callers are advised to check for a ref before decoding...
 
 The CSR's signature is returned.
 
-If `$format` is **true**, in binary.
+If `$format` is **1**, in binary.
+
+If `$format` is **2**, decoded as an ECDSA signature - returns hashref to `r` and `s`.
 
 Otherwise, in its hexadecimal representation.
 
@@ -606,6 +608,8 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Add certificationRequest and signature(1) to enable verification of CSR signatures
 
      - Add signatureParams()
+
+     - Add signature(2) to extract ECDSA signature components.
 
     
 

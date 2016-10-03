@@ -22,7 +22,9 @@ use warnings;
 
 use Test::More 0.94 tests => 9;
 
+use Crypt::OpenSSL::DSA;
 use Crypt::OpenSSL::RSA;
+use Digest::SHA qw( sha256 );
 use File::Spec;
 
 # Name of directory where data files are found
@@ -554,7 +556,7 @@ subtest 'stringify object' => sub {
 };
 
 subtest 'DSA requests' => sub {
-    plan tests => 3;
+    plan tests => 5;
 
     my $file = File::Spec->catpath( @dirpath, 'csr5.pem' );
 
@@ -575,6 +577,10 @@ subtest 'DSA requests' => sub {
                 P => 'eb3ac7a7928f0a2ab9ef61288cfde11c13e932d3853803daeb2559e8a91abc9dc48577195a471026ef27741f24e60d93a42506f16cd8bd5aebdbf519b5baa3e6470484c3c3790ffc9b5617fbd38545cd07ff60da7846383c848f0ab447ac7ed5dcd35132d882e03269f3694330d41292d92e4472429ffa0e2514ec35ea96ee2d',
                 G => 'd2a82fb32f303aab7c554c91096d233cd3e87b2c9e202172a5206c7a228a39195504fcf6266748ea1a212cef6b9632bdc2012a766875c93334f7dacc24fef6ed11c185af502b236637bfdb3f8fab1de2b4bc26b45d5bb6171b8c169eca77977b5b4b9c9ca7df4052c7717bd885db9436d09829659e886de35173da53a16b78d7',
                }, 'subjectPublicKeyParams(DSA)' );
+
+    my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $decoded-> subjectPublicKey(1) );
+    isnt( $dsa, undef, 'DSA public key' );
+    ok( $dsa->verify( sha256( $decoded->certificationRequest ), $decoded->signature(1) ), 'verify CSR signature' );
 };
 
     # registerOID test needed

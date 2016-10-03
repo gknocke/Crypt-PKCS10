@@ -630,6 +630,9 @@ sub _new {
 
     eccName ::= OBJECT IDENTIFIER
 
+    ecdsaSigValue ::= SEQUENCE {
+        r               INTEGER,
+        s               INTEGER}
 ASN1
 
     $asn->registertype( 'qualifier', '1.3.6.1.5.5.7.2.1', $self->_init('CPSuri') );
@@ -1183,6 +1186,10 @@ sub signature {
     my $self = shift;
     my $format = shift;
 
+    if( defined $format && $format == 2 ) { # ECDSA
+        my $par = $self->_init( 'ecdsaSigValue' );
+        return $par->decode( $self->{signature}[0] );
+    }
     return $self->{signature}[0] if( $format );
     unpack('H*', $self->{signature}[0]);
 }
@@ -1754,7 +1761,9 @@ Callers are advised to check for a ref before decoding...
 
 The CSR's signature is returned.
 
-If C<$format> is B<true>, in binary.
+If C<$format> is B<1>, in binary.
+
+If C<$format> is B<2>, decoded as an ECDSA signature - returns hashref to C<r> and C<s>.
 
 Otherwise, in its hexadecimal representation.
 
