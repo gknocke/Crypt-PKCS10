@@ -22,6 +22,7 @@ use warnings;
 
 use Test::More 0.94 tests => 9;
 
+use Crypt::OpenSSL::RSA;
 use File::Spec;
 
 # Name of directory where data files are found
@@ -31,7 +32,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 23;
+    plan tests => 25;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -122,6 +123,19 @@ _KEYPEM_
 	'6f69d86c5a7e024672a4504caa3a2be48e891ff4b83b4815ea6972f54367466decce6be94c67aed04145392684726',
 	'signature' );
 
+    is( unpack( "H*", $decoded->certificationRequest ),
+        '308201b602010030818831133011060a0992268993f22c64011916036f726731173015060a0992268993f22c' .
+        '64011916074f70656e53534c31153013060a0992268993f22c640119160575736572733123300b0603550403' .
+        '0c04746573743014060a0992268993f22c6401010c06313233343536311c301a06092a864886f70d01090116' .
+        '0d7465737440746573742e636f6d30820122300d06092a864886f70d01010105000382010f003082010a0282' .
+        '010100e0484c12ee29a56fb72d2829fdf286859b049a007d9030126bdd1e9d2319be38b4a40b00416dc54b00' .
+        '0340ba580bb1c511e251e1a781ec2139c52d41e16226f607d1c4b3027a4a951eadc88e90b100de568f267902' .
+        'c694399d1392b27b7a7f31d84795e51d6833ee46132bfc049f9f962cc6f50e511f1a56227d47d7e3d60f8756' .
+        'd914a8fcf5440a67e571e4106fa6e6cb1cbe6e46b94abed62f11bde4b2cfb2cf330558654e7f27ccc82b2870' .
+        '8517a3336a36a9308b5683cbf3dcca492cd563ae3a74d2d337424a644771cce8704dc47e67ecff2389587a57' .
+        'e3a2197813114a58cecd260071bf03c97aa4b2d0bf0e1f51310202bc7dee79ba9e884a6528a36f0203010001a000',
+        'certificationRequest' );
+
     is( scalar $decoded->subject, '/DC=org/DC=OpenSSL/DC=users/CN=test/UID=123456/emailAddress=test@test.com',
 	'subject()' );
 
@@ -184,6 +198,11 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     #is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
     is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'signature algorithm' );
+
+    my $key = Crypt::OpenSSL::RSA->new_public_key( $decoded->subjectPublicKey(1) );
+    $key->use_sha256_hash;
+    $key->use_pkcs1_padding;
+    ok( $key->verify( $decoded->certificationRequest, $decoded->signature(1) ), 'verify CSR signature' );
 
     my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 

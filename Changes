@@ -98,5 +98,6 @@ Revision history for perl module Crypt::PKCS10
  - Support more EC OIDs
  - Add DSA OIDs
  - Add subjectPublicKeyParams(), which provides some description of the key
+ - Add certificationRequest and signature(1) to enable verification of CSR signatures
 
 __END__

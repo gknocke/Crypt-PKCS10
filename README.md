@@ -165,6 +165,12 @@ Returns the binary (ASN.1) request (after conversion from PEM and removal of any
 
 If $format is **true**, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
+## certificationRequest
+
+Returns the binary (ASN.1) section of the request that is signed by the requestor.
+
+The caller can verify the signature using **signatureAlgorithm**, **certificationRequest** and **signature(1)**.
+
 ## Access methods for the subject's distinguished name
 
 Note that **subjectAltName** is prefered, and that modern certificate users will ignore the subject if **subjectAltName** is present.
@@ -264,9 +270,13 @@ the public key type.
 
 Returns the signature algorithm according to its object identifier.
 
-## signature
+## signature( $format )
 
-The signature will be returned in its hexadecimal representation
+The CSR's signature is returned.
+
+If `$format` is **true**, in binary.
+
+Otherwise, in its hexadecimal representation.
 
 ## attributes( $name )
 
@@ -583,6 +593,8 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Add DSA OIDs
 
      - Add subjectPublicKeyParams(), which provides some description of the key
+
+     - Add certificationRequest and signature(1) to enable verification of CSR signatures
 
     
 

@@ -17,7 +17,7 @@ use Carp;
 
 use overload( q("") => \&_stringify );
 
-use Convert::ASN1;
+use Convert::ASN1( qw/:tag :const/ );
 use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
@@ -664,6 +664,22 @@ ASN1
     $self->{signatureAlgorithm}
         = $self->_convert_signatureAlgorithm( $top->{signatureAlgorithm} );
 
+    # Extract bundle of bits that is signed
+    # The DER is SEQUENCE -- CertificationRequest
+    #              SEQUENCE -- CertificationRequestInfo [SIGNED]
+
+    my( $CRtaglen, $CRtag, $CRllen, $CRlen );
+    ($CRtaglen, undef, $CRtag) = asn_decode_tag2( $der );
+    croak( "Invalid CSR format" ) unless( $CRtag == ASN_SEQUENCE );
+    ($CRllen, $CRlen) = asn_decode_length( substr( $der, $CRtaglen ) );
+
+    my( $CItaglen, $CItag, $CIllen, $CIlen );
+    ($CItaglen, undef, $CItag) = asn_decode_tag2( substr( $der, $CRtaglen + $CRllen ) );
+    croak( "Invalid CSR format" ) unless( $CItag == ASN_SEQUENCE );
+    ($CIllen, $CIlen) = asn_decode_length( substr( $der, $CRtaglen + $CRllen + $CItaglen ) );
+
+    $self->{_signed} = substr( $der, $CRtaglen +  $CRllen, $CItaglen + $CIllen + $CIlen );
+
     return $self;
 }
 
@@ -1150,7 +1166,16 @@ sub signatureAlgorithm {
 
 sub signature {
     my $self = shift;
+    my $format = shift;
+
+    return $self->{signature}[0] if( $format );
     unpack('H*', $self->{signature}[0]);
+}
+
+sub certificationRequest {
+    my $self = shift;
+
+    return $self->{_signed};
 }
 
 sub _attributes {
@@ -1596,6 +1621,12 @@ Returns the binary (ASN.1) request (after conversion from PEM and removal of any
 
 If $format is B<true>, the request is returned as a PEM CSR.  Otherwise as a binary string.
 
+=head2 certificationRequest
+
+Returns the binary (ASN.1) section of the request that is signed by the requestor.
+
+The caller can verify the signature using B<signatureAlgorithm>, B<certificationRequest> and B<signature(1)>.
+
 =head2 Access methods for the subject's distinguished name
 
 Note that B<subjectAltName> is prefered, and that modern certificate users will ignore the subject if B<subjectAltName> is present.
@@ -1695,9 +1726,13 @@ C<keylen> - Approximate length of the key in bits.
 
 Returns the signature algorithm according to its object identifier.
 
-=head2 signature
+=head2 signature( $format )
 
-The signature will be returned in its hexadecimal representation
+The CSR's signature is returned.
+
+If C<$format> is B<true>, in binary.
+
+Otherwise, in its hexadecimal representation.
 
 =head2 attributes( $name )
 

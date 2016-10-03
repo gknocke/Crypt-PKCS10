@@ -28,6 +28,7 @@ my %WriteMakefileArgs = (
     "warnings" => 0
   },
   "TEST_REQUIRES" => {
+    "Crypt::OpenSSL::RSA" => 0,
     "ExtUtils::MakeMaker" => 0,
     "File::Spec" => 0,
     "Module::Signature" => 0,
@@ -44,6 +45,7 @@ my %WriteMakefileArgs = (
 my %FallbackPrereqs = (
   "Carp" => 0,
   "Convert::ASN1" => "0.27",
+  "Crypt::OpenSSL::RSA" => 0,
   "Encode" => 0,
   "ExtUtils::MakeMaker" => 0,
   "File::Spec" => 0,

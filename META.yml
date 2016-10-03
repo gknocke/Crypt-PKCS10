@@ -4,6 +4,7 @@ author:
   - 'Gideon Knocke <gknocke@cpan.org>'
   - 'Timothe Litt <tlhackque@cpan.org>'
 build_requires:
+  Crypt::OpenSSL::RSA: 0
   ExtUtils::MakeMaker: 0
   File::Spec: 0
   Module::Signature: 0
