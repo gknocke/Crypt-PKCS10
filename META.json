@@ -52,6 +52,7 @@
          "requires" : {
             "Crypt::OpenSSL::DSA" : "0",
             "Crypt::OpenSSL::RSA" : "0",
+            "Crypt::PK::ECC" : "0",
             "Digest::SHA" : "0",
             "ExtUtils::MakeMaker" : "0",
             "File::Spec" : "0",
