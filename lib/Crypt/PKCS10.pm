@@ -1474,8 +1474,43 @@ sub _stringify {
     $string .= sprintf( "%-*s: %s\n", $max, 'Key algorithm', $self->pkAlgorithm );
     $string .= sprintf( "%-*s: %s\n", $max, 'Public key', _wrap( $max+2, $self->subjectPublicKey ) );
     $string .= $self->subjectPublicKey(1);
-    $string .= sprintf( "%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
+    my $kp = $self->subjectPublicKeyParams(1);
+    foreach (sort keys %$kp) {
+        my $v = $kp->{$_};
+
+        if( !defined $v ) {
+            $v = 'undef';
+        } elsif( ref $v ) {
+            next;
+        }
+        $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $v ) );
+    }
+    if( exists $kp->{detail} ) {
+        $kp = $kp->{detail};
+        $string .= "Key details\n-----------\n";
+        foreach (sort keys %$kp) {
+            next if( ref $kp->{$_} );
+            $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $kp->{$_} ) );
+        }
+    }
+
+    $string .= sprintf( "\n%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
     $string .= sprintf( "%-*s: %s\n", $max, 'Signature', _wrap( $max+2, $self->signature ) );
+    my $sp = $self->signature(2);
+    if( $sp ) {
+        foreach (sort keys %$sp) {
+            my $v = $sp->{$_};
+
+            if( ref $v ) {
+                if( $v->can('as_hex') ) {
+                    $v = substr( $v->as_hex, 2 );
+                } else {
+                    next;
+                }
+            }
+            $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $v ) );
+        }
+    }
 
     $string .= "\n          --Request--\n" . $self->csrRequest(1);
 
