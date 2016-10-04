@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 18;
+use Test::More 0.94 tests => 19;
 
 use File::Spec;
 use Crypt::PKCS10;
@@ -66,6 +66,8 @@ is_deeply( $decoded->subjectPublicKeyParams,
            {keytype => 'ECC',
             keylen => 256,
             curve => 'brainpoolP256r1',
+            'pub_x' => '8D0507A7EBF58A17910FE2B15B0C451E93BC948A4BAFB7BF1204D6043E7DE139',
+            'pub_y' => '4230BEFAB9C5115CD3CD1E059A545788BB1E0830EE06300C4F3E8D87128F3DDC',
            }, 'subjectPublicKeyParams(EC brainpool)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA256', 'signature algorithm' );
@@ -80,6 +82,25 @@ ok( defined $sig &&
 my $key = $decoded->subjectPublicKey(1);
 
 isnt( $key = Crypt::PK::ECC->new( \$key ), undef, 'parse EC key' );
+is_deeply( $key->key2hash, {
+   'curve_A' => '7D5A0975FC2C3057EEF67530417AFFE7FB8055C126DC5C6CE94A4B44F330B5D9',
+   'curve_B' => '26DC5C6CE94A4B44F330B5D9BBD77CBF958416295CF7E1CE6BCCDC18FF8C07B6',
+   'curve_Gx' => '8BD2AEB9CB7E57CB2C4B482FFC81B7AFB9DE27E1E3BD23C23A4453BD9ACE3262',
+   'curve_Gy' => '547EF835C3DAC4FD97F8461A14611DC9C27745132DED8E545C1D54C72F046997',
+   'curve_bits' => 256,
+   'curve_bytes' => 32,
+   'curve_cofactor' => 1,
+   'curve_name' => 'brainpoolp256r1',
+   'curve_oid' => '1.3.36.3.3.2.8.1.1.7',
+   'curve_order' => 'A9FB57DBA1EEA9BC3E660A909D838D718C397AA3B561A6F7901E0E82974856A7',
+   'curve_prime' => 'A9FB57DBA1EEA9BC3E660A909D838D726E3BF623D52620282013481D1F6E5377',
+   'k' => '',
+   'pub_x' => '8D0507A7EBF58A17910FE2B15B0C451E93BC948A4BAFB7BF1204D6043E7DE139',
+   'pub_y' => '4230BEFAB9C5115CD3CD1E059A545788BB1E0830EE06300C4F3E8D87128F3DDC',
+   'size' => 32,
+   'type' => 0,
+                           }, 'extract EC parameters' );
+
 ok( $key->verify_message($decoded->signature(1), $decoded->certificationRequest, 'SHA256'), 'verify CSR signature' );
 
 
@@ -99,6 +120,8 @@ is_deeply( $decoded->subjectPublicKeyParams,
            {keytype => 'ECC',
             keylen => 384,
             curve => 'secp384r1',
+            'pub_x' => '43FCD15809728171AECA3029A002C13424E92F5D39C3FB7074B5B4B8802FA3E9AB79E1F6CC174596AA09C6BEA9DFAAFF',
+            'pub_y' => '1891F7048842DF14F3FDCABB81C40BDDBFDA64A20FCEA13136DF8109AB56D205F857A295ED00C6B7FAFB6240D66447EB',
            }, 'subjectPublicKeyParams(EC secp)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );

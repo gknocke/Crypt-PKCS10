@@ -35,6 +35,7 @@
          "requires" : {
             "Carp" : "0",
             "Convert::ASN1" : "0.27",
+            "Crypt::PK::ECC" : "0",
             "Encode" : "0",
             "MIME::Base64" : "0",
             "Scalar::Util" : "0",
@@ -52,7 +53,6 @@
          "requires" : {
             "Crypt::OpenSSL::DSA" : "0",
             "Crypt::OpenSSL::RSA" : "0",
-            "Crypt::PK::ECC" : "0",
             "Digest::SHA" : "0",
             "ExtUtils::MakeMaker" : "0",
             "File::Spec" : "0",

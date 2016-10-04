@@ -1139,10 +1139,15 @@ sub subjectPublicKeyParams {
     my $at = $self->pkAlgorithm;
     if( $at eq 'ecPublicKey' ) {
         $rv->{keytype} = 'ECC';
-        my( $type, $val ) = $self->subjectPublicKey =~ /^0([234])([[:xdigit:]]+)$/;
-        if( defined $type ) {
-            $rv->{keylen} = ( ($type == 4)? 2 : 4 ) * length $val; # uncompressed : compressed point
-        }
+
+        require Crypt::PK::ECC;
+
+        my $key = $self->subjectPublicKey(1);
+        $key = Crypt::PK::ECC->new( \$key )->key2hash;
+        $rv->{keylen} = $key->{curve_bits};
+        $rv->{pub_x}  = $key->{pub_x};
+        $rv->{pub_y}  = $key->{pub_y};
+
         my $par = $self->_init( 'eccName' );
         $rv->{curve} = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} );
         $rv->{curve} = $self->_oid2name( $rv->{curve} );
@@ -1526,6 +1531,8 @@ To install this module type the following:
 =head1 REQUIRES
 
 C<Convert::ASN1>
+
+For ECC: C<Crypt::PK::ECC>
 
 Tests also require C<Crypt::OpenSSL::DSA, Crypt::OpenSSL::RSA, Crypt::PK::ECC, Digest::SHA>.
 Note that these are useful for signature verification; see the tests for code.

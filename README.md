@@ -70,6 +70,8 @@ To install this module type the following:
 
 `Convert::ASN1`
 
+For ECC: `Crypt::PK::ECC`
+
 Tests also require `Crypt::OpenSSL::DSA, Crypt::OpenSSL::RSA, Crypt::PK::ECC, Digest::SHA`.
 Note that these are useful for signature verification; see the tests for code.
 
