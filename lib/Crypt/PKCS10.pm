@@ -1438,6 +1438,25 @@ sub _stringify {
     my $self = shift;
 
     local $self->{_escapeStrings} = 0;
+    local( $@, $_, $! );
+
+    my $v = $apiVersion;
+    $self->setAPIversion( 1 ) unless( defined $v && $v == 1 );
+
+    my $string = eval {
+        $self->__stringify;
+    };
+    my $at = $@;
+    $self->setAPIversion( $v ) unless( defined $v && $v == 1 );
+
+    $string = '' unless( defined $string );
+    $string .= $at if( $at );
+
+    return $string;
+}
+
+sub __stringify {
+    my $self = shift;
 
     my $max = 0;
     foreach ($self->attributes, $self->extensions,
