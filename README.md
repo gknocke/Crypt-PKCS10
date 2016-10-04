@@ -267,12 +267,29 @@ Otherwise, the public key will be returned in its hexadecimal representation
 
 ## subjectPublicKeyParams
 
-Returns a hash describing the public key.  The contents may vary depending on
+Returns a hash describing the public key.  The contents vary depending on
 the public key type.
+
+### Standard items:
 
 `keytype` - ECC, RSA, DSA
 
 `keylen` - Approximate length of the key in bits.
+
+Other items include:
+
+For RSA, `modulus` and `publicExponent`.
+
+For DSA, `G, P and Q`.
+
+For ECC, `curve`, `pub_x` and `pub_y`.  `curve` is an OID name.
+
+### Additional detail
+
+`subjectPublicKeyParams(1)` returns the standard items, and may
+also return `detail`, which is a hashref.
+
+For ECC, the `detail` hash includes the curve definition constants.
 
 ## signatureAlgorithm
 

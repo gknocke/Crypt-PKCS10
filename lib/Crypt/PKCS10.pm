@@ -1134,6 +1134,7 @@ sub subjectPublicKey {
 
 sub subjectPublicKeyParams {
     my $self = shift;
+    my $detail = shift;
 
     my $rv = {};
     my $at = $self->pkAlgorithm;
@@ -1147,6 +1148,7 @@ sub subjectPublicKeyParams {
         $rv->{keylen} = $key->{curve_bits};
         $rv->{pub_x}  = $key->{pub_x};
         $rv->{pub_y}  = $key->{pub_y};
+        $rv->{detail} = { %$key } if( $detail );
 
         my $par = $self->_init( 'eccName' );
         $rv->{curve} = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} );
@@ -1765,12 +1767,29 @@ Otherwise, the public key will be returned in its hexadecimal representation
 
 =head2 subjectPublicKeyParams
 
-Returns a hash describing the public key.  The contents may vary depending on
+Returns a hash describing the public key.  The contents vary depending on
 the public key type.
+
+=head3 Standard items:
 
 C<keytype> - ECC, RSA, DSA
 
 C<keylen> - Approximate length of the key in bits.
+
+Other items include:
+
+For RSA, C<modulus> and C<publicExponent>.
+
+For DSA, C<G, P and Q>.
+
+For ECC, C<curve>, C<pub_x> and C<pub_y>.  C<curve> is an OID name.
+
+=head3 Additional detail
+
+C<subjectPublicKeyParams(1)> returns the standard items, and may
+also return C<detail>, which is a hashref.
+
+For ECC, the C<detail> hash includes the curve definition constants.
 
 =head2 signatureAlgorithm
 
