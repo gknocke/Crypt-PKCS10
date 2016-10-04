@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 9;
+use Test::More 0.94 tests => 10;
 
 use Crypt::OpenSSL::DSA;
 use Crypt::OpenSSL::RSA;
@@ -34,7 +34,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 26;
+    plan tests => 27;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -202,6 +202,8 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
     is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'signature algorithm' );
 
     is( $decoded->signatureParams, undef, 'signature parameters' ); # RSA is NULL
+
+    is( $decoded->signature(2), undef, 'signature decoding' );
 
     my $key = Crypt::OpenSSL::RSA->new_public_key( $decoded->subjectPublicKey(1) );
     $key->use_sha256_hash;
@@ -479,6 +481,38 @@ subtest 'oid mapping' => sub {
 
 };
 
+subtest 'oid registration' => sub {
+    plan tests => 14;
+
+    ok( !Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0' ), 'OID is not registered' );
+    ok( Crypt::PKCS10->registerOID( '2.5.4.51' ), 'OID is registered' );
+    ok( Crypt::PKCS10->registerOID( '1.3.6.1.5.5.7.3.1' ), 'KeyUsage OID registered' );
+    ok( Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0', 'SampleOID' ), 'Register longform OID' );
+    is( Crypt::PKCS10->name2oid( 'SampleOID' ),  '1.3.6.1.4.1.25043.0', 'Find by name' );
+    is( Crypt::PKCS10->oid2name( '1.3.6.1.4.1.25043.0' ), 'SampleOID', 'Find by OID' );
+
+    ok( Crypt::PKCS10->registerOID( '1.2.840.113549.1.9.1', undef, 'e' ), 'Register /E for emailAddress' );
+    cmp_ok( scalar $decoded->subject, 'eq', '/C=AU/ST=Some-State/L=my city/O=Internet Widgits Pty Ltd/OU=Big org/OU=Smaller org/CN=My Name/E=none@no-email.com/DC=domainComponent', 'Short name for /emailAddress' );
+
+    eval{ Crypt::PKCS10->registerOID( '2.5.4.6',  undef, 'C' ) };
+    like( $@, qr/^C already registered/, 'Register duplicate shortname' );
+
+    eval{ Crypt::PKCS10->registerOID( 'A',  'name' ) };
+    like( $@, qr/^Invalid OID A/, 'Register invalid OID' );
+
+    eval{ Crypt::PKCS10->registerOID( '2.5.4.6',  'emailAddress', 'C' ) };
+    like( $@, qr/^2.5.4.6 already registered/, 'Register duplicate oid' );
+
+    eval{ Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0.1',  'emailAddress', 'C' ) };
+    like( $@, qr/^emailAddress already registered/, 'Register duplicate longname' );
+
+    eval{ Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0.1',  undef, 'Z' ) };
+    like( $@, qr/^1.3.6.1.4.1.25043.0.1 not registered/, 'Register shortname to unassigned OID' );
+
+    eval{ Crypt::PKCS10->registerOID( undef ) };
+    like( $@, qr/^Not enough arguments/, 'Minimum arguments' );
+};
+
 subtest 'Microsoft extensions' => sub {
     plan tests => 10;
 
@@ -556,7 +590,7 @@ subtest 'stringify object' => sub {
 };
 
 subtest 'DSA requests' => sub {
-    plan tests => 5;
+    plan tests => 6;
 
     my $file = File::Spec->catpath( @dirpath, 'csr5.pem' );
 
@@ -578,12 +612,12 @@ subtest 'DSA requests' => sub {
                 G => 'd2a82fb32f303aab7c554c91096d233cd3e87b2c9e202172a5206c7a228a39195504fcf6266748ea1a212cef6b9632bdc2012a766875c93334f7dacc24fef6ed11c185af502b236637bfdb3f8fab1de2b4bc26b45d5bb6171b8c169eca77977b5b4b9c9ca7df4052c7717bd885db9436d09829659e886de35173da53a16b78d7',
                }, 'subjectPublicKeyParams(DSA)' );
 
+    is( $decoded->signature(2), undef, 'signature decoding' );
+
     my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $decoded-> subjectPublicKey(1) );
     isnt( $dsa, undef, 'DSA public key' );
     ok( $dsa->verify( sha256( $decoded->certificationRequest ), $decoded->signature(1) ), 'verify CSR signature' );
 };
-
-    # registerOID test needed
 
     # API v0 tests needed
 

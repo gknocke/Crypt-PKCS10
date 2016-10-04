@@ -26,7 +26,7 @@ version 1.601
 
 Common object identifiers will be translated to their corresponding names.
 Additionally, accessor methods allow extraction of single data fields.
-Bit Strings like signatures will be returned in their hexadecimal representation.
+The format of returned data varies by accessor.
 
 The access methods return the value corresponding to their name.  If called in scalar context, they return the first value (or an empty string).  If called in array context, they return all values.
 
@@ -38,7 +38,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # RELEASE NOTES
 
-Version 1.4 has several API changes.  Most users should have a painless migration.
+Version 1.4 made several API changes.  Most users should have a painless migration.
 
 ALL users must call Crypt::PKCS10->setAPIversion.  If not, a warning will be generated
 by the first class method called.  This warning will be made a fatal exception in a
@@ -54,6 +54,9 @@ new will accept an open file handle in addition to a request.
 Users are encouraged to migrate to the version 1 API.  It is much easier to use,
 and does not require the application to navigate internal data structures.
 
+Version 1.7 provides support for DSA and ECC public keys.  It also allows the
+caller to verify the signature of a CSR.
+
 # INSTALLATION
 
 To install this module type the following:
@@ -65,7 +68,10 @@ To install this module type the following:
 
 # REQUIRES
 
-Convert::ASN1
+`Convert::ASN1`
+
+Tests also require `Crypt::OpenSSL::DSA, Crypt::OpenSSL::RSA, Crypt::PK::ECC, Digest::SHA`.
+Note that these are useful for signature verification; see the tests for code.
 
 # METHODS
 
@@ -397,6 +403,11 @@ The short name should be upper-case (and will be upcased).
 
 E.g. built-in are `$oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN'`
 
+To register a shortname for an existing OID without one, specify `$longname` as `undef`.
+
+E.g. To register /E for emailAddress, use:
+  `Crypt::PKCS10->registerOID( '1.2.840.113549.1.9.1', undef, 'e' )`
+
 Generates an exception if any argument is not valid, or is in use.
 
 Returns **true** otherwise.
@@ -611,6 +622,8 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
 
      - Add signature(2) to extract ECDSA signature components.
 
+     - Fix and extend registerOID, add tests.
+
     
 
 For a more detailed list of changes, see `Commitlog` in the distribution.
@@ -632,7 +645,7 @@ realistic certificate requests.
 
 # ACKNOWLEDGEMENTS
 
-Martin Bartosch contributed the OIDs and tests for EC support.
+Martin Bartosch contributed preliminary EC support:  OIDs and tests.
 
 Timothe Litt made most of the changes for V1.4+
 
