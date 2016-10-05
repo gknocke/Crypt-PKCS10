@@ -287,8 +287,9 @@ sub _listOIDs {
 sub setAPIversion {
     my( $class, $version ) = @_;
 
+    croak( ($error = "Wrong number of arguments\n") ) unless( @_ == 2 );
     $version = 0 unless( defined $version );
-    croak( ($error = "Unsupported API version $version\n" ) ) unless( $version >= 0 && $version <= 1 );
+    croak( ($error = "Unsupported API version $version\n") ) unless( $version >= 0 && $version <= 1 );
     $apiVersion = $version;
 
     $version = !$version || 0;
@@ -1135,6 +1136,8 @@ sub subjectPublicKey {
 sub subjectPublicKeyParams {
     my $self = shift;
     my $detail = shift;
+
+    croak( "Requires API version 1\n" ) unless( $apiVersion >= 1 );
 
     my $rv = {};
     my $at = $self->pkAlgorithm;

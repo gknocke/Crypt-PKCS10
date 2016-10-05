@@ -1,0 +1,35 @@
+#! /usr/bin/perl
+# -*- mode: cperl; -*-
+
+# Dump a CSR
+# Usage: dump_csr file
+#        If file is not specified, reads from stdin
+
+# Copyright (c) 2016 Timothe Litt
+#
+# This is free software; you can redistribute it and/or modify it under
+# the same terms as the Perl 5 programming language system itself.
+#
+# Terms of the Perl programming language system itself
+#
+# a) the GNU General Public License as published by the Free
+#   Software Foundation; either version 1, or (at your option) any
+#   later version, or
+# b) the "Artistic License"
+#
+# See LICENSE for details.
+#
+use strict;
+use warnings;
+
+use Crypt::PKCS10;
+use File::Slurp;
+
+my $in = read_file( @ARGV? $ARGV[0]: \*STDIN, binmode => ':raw' );
+
+Crypt::PKCS10->setAPIversion(1);
+my $csr = Crypt::PKCS10->new( $in ) or die Crypt::PKCS10->error;
+
+print $csr;
+
+exit;
