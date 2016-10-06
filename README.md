@@ -54,8 +54,8 @@ new will accept an open file handle in addition to a request.
 Users are encouraged to migrate to the version 1 API.  It is much easier to use,
 and does not require the application to navigate internal data structures.
 
-Version 1.7 provides support for DSA and ECC public keys.  It also allows the
-caller to verify the signature of a CSR.
+Version 1.7 provides support for DSA and ECC public keys.  By default, it verifies
+the signature of CSRs.  It also allows the caller to verify the signature of a CSR.
 
 # INSTALLATION
 
@@ -70,10 +70,17 @@ To install this module type the following:
 
 `Convert::ASN1`
 
+`Crypt::OpenSSL::DSA`
+
+`Crypt::OpenSSL::RSA`
+
+`Crypt::PK::ECC`
+
+`Digest::SHA`
+
 For ECC: `Crypt::PK::ECC`
 
-Tests also require `Crypt::OpenSSL::DSA, Crypt::OpenSSL::RSA, Crypt::PK::ECC, Digest::SHA`.
-Note that these are useful for signature verification; see the tests for code.
+Very old CSRs may require `DIGEST::MD{5,4,2}`
 
 # METHODS
 
@@ -147,6 +154,14 @@ Call `error()` to obtain more detail.
     to a human.
 
     The default is **true**.
+
+- verifySignature
+
+    If **true**, the CSR's signature is checked.  If verification fails, `new` will fail.
+
+    If **false**, the CSR's signature is not checked.
+
+    The default is **true** for API version 1 and **false** for API version 0.
 
 No exceptions are generated.
 
@@ -431,6 +446,18 @@ Generates an exception if any argument is not valid, or is in use.
 
 Returns **true** otherwise.
 
+## checkSignature
+
+Verifies the signature of a CSR.  (Useful if new() specified `verifySignature => 0`.)
+
+Returns true if the signature is OK.
+
+Returns false if the signature is incorrect.  `Crypt::PKCS10->error` returns
+the reason.
+
+Returns undef if there was an error in the verification process (e.g. a required
+Perl module could not be loaded.)
+
 ## certificateTemplate
 
 `CertificateTemplate` returns the **certificateTemplate** attribute.
@@ -642,6 +669,10 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Add signature(2) to extract ECDSA signature components.
 
      - Fix and extend registerOID, add tests.
+
+     - Add examples/ directory with sample code
+
+     - Verify signature of CSRs in new() by default.  Add checkSignature().
 
     
 

@@ -35,7 +35,13 @@
          "requires" : {
             "Carp" : "0",
             "Convert::ASN1" : "0.27",
+            "Crypt::OpenSSL::DSA" : "0",
+            "Crypt::OpenSSL::RSA" : "0",
             "Crypt::PK::ECC" : "0",
+            "Digest::MD2" : "0",
+            "Digest::MD4" : "0",
+            "Digest::MD5" : "0",
+            "Digest::SHA" : "0",
             "Encode" : "0",
             "MIME::Base64" : "0",
             "Scalar::Util" : "0",
@@ -51,9 +57,6 @@
             "CPAN::Meta" : "2.120900"
          },
          "requires" : {
-            "Crypt::OpenSSL::DSA" : "0",
-            "Crypt::OpenSSL::RSA" : "0",
-            "Digest::SHA" : "0",
             "ExtUtils::MakeMaker" : "0",
             "File::Spec" : "0",
             "Module::Signature" : "0",

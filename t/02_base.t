@@ -22,9 +22,6 @@ use warnings;
 
 use Test::More 0.94 tests => 10;
 
-use Crypt::OpenSSL::DSA;
-use Crypt::OpenSSL::RSA;
-use Digest::SHA qw( sha256 );
 use File::Spec;
 
 # Name of directory where data files are found
@@ -34,7 +31,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 27;
+    plan tests => 31;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -79,7 +76,7 @@ trailing junk
 more junk
 -CERT-
 
-    $decoded = Crypt::PKCS10->new( $csr );
+    $decoded = Crypt::PKCS10->new( $csr, verifySignature => 0 );
 
     isnt( $decoded, undef, 'load PEM from variable' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -205,10 +202,7 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     is( $decoded->signature(2), undef, 'signature decoding' );
 
-    my $key = Crypt::OpenSSL::RSA->new_public_key( $decoded->subjectPublicKey(1) );
-    $key->use_sha256_hash;
-    $key->use_pkcs1_padding;
-    ok( $key->verify( $decoded->certificationRequest, $decoded->signature(1) ), 'verify CSR signature' );
+    ok( $decoded->checkSignature, 'verify CSR signature' );
 
     my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 
@@ -286,6 +280,28 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 		    ]
 		   ], "subject name component list" );
     };
+
+    $file = File::Spec->catpath( @dirpath, 'csr3.cer' );
+
+    my $bad;
+
+    if( open( my $csr, '<', $file ) ) {
+	$bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
+    } else {
+	BAIL_OUT( "$file: $!\n" );;
+    }
+
+    is( $bad, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    if( open( my $csr, '<', $file ) ) {
+	$bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0, verifySignature => 0 );
+    } else {
+	BAIL_OUT( "$file: $!\n" );;
+    }
+    isnt( $bad, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    ok( !$bad->checkSignature, 'checkSignature returns false' );
+    ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
 };
 
 subtest 'attribute functions' => sub {
@@ -590,7 +606,7 @@ subtest 'stringify object' => sub {
 };
 
 subtest 'DSA requests' => sub {
-    plan tests => 6;
+    plan tests => 4;
 
     my $file = File::Spec->catpath( @dirpath, 'csr5.pem' );
 
@@ -613,10 +629,6 @@ subtest 'DSA requests' => sub {
                }, 'subjectPublicKeyParams(DSA)' );
 
     is( $decoded->signature(2), undef, 'signature decoding' );
-
-    my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $decoded-> subjectPublicKey(1) );
-    isnt( $dsa, undef, 'DSA public key' );
-    ok( $dsa->verify( sha256( $decoded->certificationRequest ), $decoded->signature(1) ), 'verify CSR signature' );
 };
 
     # API v0 tests needed

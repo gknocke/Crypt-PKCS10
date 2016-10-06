@@ -396,20 +396,22 @@ sub error {
 sub _new {
     my $class  = shift;
     my $der    = shift;
-    my %options = (
-		   acceptPEM     => 1,
-		   escapeStrings => 1,
-		   @_
-		  );
 
     unless( defined $apiVersion ) {
 	carp( "${class}::setAPIversion MUST be called before new().  Defaulting to legacy mode\n" );
 	$class->setAPIversion(0);
     }
 
+    my %options = (
+		   acceptPEM     => 1,
+		   escapeStrings => 1,
+                   verifySignature => $apiVersion,
+		   @_
+		  );
+
     my $self = {};
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM)$/ } keys %options);
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|verifySignature)$/ } keys %options);
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -694,6 +696,8 @@ ASN1
     ($CIllen, $CIlen) = asn_decode_length( substr( $der, $CRtaglen + $CRllen + $CItaglen ) );
 
     $self->{_signed} = substr( $der, $CRtaglen +  $CRllen, $CItaglen + $CIllen + $CIlen );
+
+    croak( $error ) if( $self->{_verifySignature} && !$self->checkSignature );
 
     return $self;
 }
@@ -1424,6 +1428,84 @@ sub extensionPresent {
     return;
 }
 
+sub checkSignature {
+    my $self = shift;
+
+    undef $error;
+
+    my $ok = eval {
+        croak( "checkSignature requires API version 1\n" ) unless( $apiVersion >= 1 );
+
+        my $key = $self->subjectPublicKey(1); # Key as PEM
+        my $sig = $self->signature(1);        # Signature as DER
+        my $alg = $self->signatureAlgorithm;  # Algorithm name
+
+        # Determine the signature hash type from the algorithm name
+
+        my( $hash, $hashmod, $hashfcn ); # hashnnn, Digest::mod, Digest::mod::fcn
+        if( $alg =~ /sha-?(\d+)/i ) {
+            $hash = "sha$1";
+            $hashmod = 'Digest::SHA';
+            $hashfcn = "Digest::SHA::$hash";
+        } elsif( $alg =~ /md-?(\d)/i ) {
+            $hash = "md$1";
+            $hashmod = "Digest::MD$1";
+            $hashfcn = "Digest::MD$1::$hash";
+        } else {
+            croak( "Unknown hash in signature algorithm $alg\n" );
+        }
+
+        my $keyp = $self->subjectPublicKeyParams;
+
+        croak( "Unknown public key type\n" ) unless( defined $keyp->{keytype} );
+
+        # Verify signature using the correct module and hash type.
+
+        if( $keyp->{keytype} eq 'RSA' ) {
+            require Crypt::OpenSSL::RSA;
+
+            $key = Crypt::OpenSSL::RSA->new_public_key( $key );
+            $hash = "use_${hash}_hash";
+            $key->$hash;
+            $key->use_pkcs1_padding;
+            return $key->verify( $self->certificationRequest, $sig );
+        }
+
+        if( $keyp->{keytype} eq 'DSA' ) {
+            require Crypt::OpenSSL::DSA;
+            eval "require $hashmod" or croak( $@ ); ## no critic
+
+            if( 0 ) { # For DistZilla
+                require Digest::SHA;
+                require Digest::MD5;
+                require Digest::MD4;
+                require Digest::MD2;
+            }
+
+            my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $key );
+            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic
+        }
+
+        if( $keyp->{keytype} eq 'ECC' ) {
+            require Crypt::PK::ECC;
+
+            $key = Crypt::PK::ECC->new( \$key );
+            return $key->verify_message( $sig, $self->certificationRequest, uc($hash) );
+        }
+
+        croak( "Unknown key type $keyp->{keytype}\n" );
+    };
+    if( $@ ) {
+        $error = $@;
+        return;
+    }
+    return 1 if( $ok );
+
+    $error = "Incorrect signature";
+
+    return 0;
+}
+
 sub _wrap {
     my( $to, $text ) = @_;
 
@@ -1575,8 +1657,8 @@ new will accept an open file handle in addition to a request.
 Users are encouraged to migrate to the version 1 API.  It is much easier to use,
 and does not require the application to navigate internal data structures.
 
-Version 1.7 provides support for DSA and ECC public keys.  It also allows the
-caller to verify the signature of a CSR.
+Version 1.7 provides support for DSA and ECC public keys.  By default, it verifies
+the signature of CSRs.  It also allows the caller to verify the signature of a CSR.
 
 =head1 INSTALLATION
 
@@ -1591,10 +1673,17 @@ To install this module type the following:
 
 C<Convert::ASN1>
 
+C<Crypt::OpenSSL::DSA>
+
+C<Crypt::OpenSSL::RSA>
+
+C<Crypt::PK::ECC>
+
+C<Digest::SHA>
+
 For ECC: C<Crypt::PK::ECC>
 
-Tests also require C<Crypt::OpenSSL::DSA, Crypt::OpenSSL::RSA, Crypt::PK::ECC, Digest::SHA>.
-Note that these are useful for signature verification; see the tests for code.
+Very old CSRs may require C<DIGEST::MD{5,4,2}>
 
 =end :readme
 
@@ -1702,6 +1791,15 @@ If B<false>, these strings are not '\'-escaped.  This is useful when they are be
 to a human.
 
 The default is B<true>.
+
+
+=item verifySignature
+
+If B<true>, the CSR's signature is checked.  If verification fails, C<new> will fail.
+
+If B<false>, the CSR's signature is not checked.
+
+The default is B<true> for API version 1 and B<false> for API version 0.
 
 =back
 
@@ -2021,6 +2119,19 @@ Generates an exception if any argument is not valid, or is in use.
 
 Returns B<true> otherwise.
 
+=head2 checkSignature
+
+Verifies the signature of a CSR.  (Useful if new() specified C<< verifySignature => 0 >>.)
+
+Returns true if the signature is OK.
+
+Returns false if the signature is incorrect.  C<< Crypt::PKCS10->error >> returns
+the reason.
+
+Returns undef if there was an error in the verification process (e.g. a required
+Perl module could not be loaded.)
+
+
 =head2 certificateTemplate
 
 C<CertificateTemplate> returns the B<certificateTemplate> attribute.
@@ -2205,9 +2316,11 @@ For a more detailed list of changes, see F<Commitlog> in the distribution.
 
 =head1 EXAMPLES
 
-In addition to the code snippets contained in this document, the F<t/> directory of the distribution
-contains a number of tests that exercise the API.  Although artificial, they are a good source of
-examples.
+In addition to the code snippets contained in this document, the F<examples/> directory of the distribution
+contains some sample utilitiles.
+
+Also, the F<t/> directory of the distribution contains a number of tests that exercise the
+API.  Although artificial, they are another good source of examples.
 
 Note that the type of data returned when extracting attributes and extensions is dependent
 on the specific OID used.

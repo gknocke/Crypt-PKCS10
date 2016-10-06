@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 20;
+use Test::More 0.94 tests => 23;
 
 use File::Spec;
 use Crypt::PKCS10;
@@ -127,8 +127,6 @@ is_deeply( $decoded->subjectPublicKeyParams(1), {
    'pub_y' => '4230BEFAB9C5115CD3CD1E059A545788BB1E0830EE06300C4F3E8D87128F3DDC',
                                                 }, 'detailed EC parameters' );
 
-ok( $key->verify_message($decoded->signature(1), $decoded->certificationRequest, 'SHA256'), 'verify CSR signature' );
-
 
 $file = File::Spec->catpath( @dirpath, 'csr6.pem' );
 
@@ -151,3 +149,24 @@ is_deeply( $decoded->subjectPublicKeyParams,
            }, 'subjectPublicKeyParams(EC secp)' );
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );
+
+$file = File::Spec->catpath( @dirpath, 'csr7.pem' );
+
+if( open( my $csr, '<', $file ) ) {
+    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
+} else {
+    BAIL_OUT( "$file: $!\n" );;
+}
+
+is( $decoded, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+if( open( my $csr, '<', $file ) ) {
+    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1, verifySignature => 0 );
+} else {
+    BAIL_OUT( "$file: $!\n" );;
+}
+isnt( $decoded, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+ok( !$decoded->checkSignature, 'checkSignature returns false' );
+ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
+

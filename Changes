@@ -102,5 +102,7 @@ Revision history for perl module Crypt::PKCS10
  - Add signatureParams()
  - Add signature(2) to extract ECDSA signature components.
  - Fix and extend registerOID, add tests.
+ - Add examples/ directory with sample code
+ - Verify signature of CSRs in new() by default.  Add checkSignature().
 
 __END__

@@ -28,8 +28,13 @@ use File::Slurp;
 my $in = read_file( @ARGV? $ARGV[0]: \*STDIN, binmode => ':raw' );
 
 Crypt::PKCS10->setAPIversion(1);
-my $csr = Crypt::PKCS10->new( $in ) or die Crypt::PKCS10->error;
+my $csr = Crypt::PKCS10->new( $in, verifySignature => 0 ) or die Crypt::PKCS10->error;
 
 print $csr;
+
+unless( $csr->checkSignature ) {
+    print "\n ***** Invalid signature *****\n";
+    print "Reason: " .  Crypt::PKCS10->error;
+}
 
 exit;
