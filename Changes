@@ -105,5 +105,6 @@ Revision history for perl module Crypt::PKCS10
  - Add examples/ directory with sample code
  - Verify signature of CSRs in new() by default.  Add checkSignature().
  - Optionally allow invalid base64 character in PEM data.
+ - Allow new() from filename and options from hashref.
 
 __END__

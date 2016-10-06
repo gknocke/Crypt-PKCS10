@@ -414,14 +414,20 @@ sub _new {
     my %options = (
                    acceptPEM       => 1,
                    escapeStrings   => 1,
+                   readFile        => 0,
                    ignoreNonBase64 => 0,
                    verifySignature => $apiVersion,
-                   @_
                   );
+
+    %options = ( %options, %{ shift @_ } ) if( @_ >= 1 && ref( $_[0] ) eq 'HASH' );
+
+    die( "Every option to new() must have a value\n" ) unless( @_ % 2 == 0 );
+
+    %options = ( %options, @_ ) if( @_ );
 
     my $self = {};
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|verifySignature|ignoreNonBase64)$/ } keys %options);
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|readFile|verifySignature|ignoreNonBase64)$/ } keys %options);
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -432,12 +438,17 @@ sub _new {
 
     local $SIG{__WARN__} = sub { my $msg = $_[0]; $msg =~ s/\A(.*?) at .*\Z/$1/s; chomp $msg; die "$msg\n" };
 
+    if( $self->{_readFile} ) {
+        open( my $fh, '<', $der ) or croak( "Failed to open $der: $!" );
+        $der = $fh;
+    }
+
     if( Scalar::Util::openhandle( $der ) ) {
 	local $/;
 
 	binmode $der unless( $self->{_acceptPEM} );
 
-	$der = <$der>;
+	$der = <$der>;          # Note: this closes files opened by readFile
 	croak( "Failed to read request: $!\n" ) unless( defined $der );
     }
 
@@ -1670,6 +1681,10 @@ and does not require the application to navigate internal data structures.
 
 Version 1.7 provides support for DSA and ECC public keys.  By default, it verifies
 the signature of CSRs.  It also allows the caller to verify the signature of a CSR.
+subjectPublicKeyParams and signatureParams provide additional information.
+The readFile option to new() will open() a file containing a CSR by name.
+The ignoreNonBase64 option allows PEM to contain extraneous characters.
+F<Changes> describes additional improvements.  Details follow.
 
 =head1 INSTALLATION
 
@@ -1722,6 +1737,8 @@ The format of returned data varies by accessor.
 
 The access methods return the value corresponding to their name.  If called in scalar context, they return the first value (or an empty string).  If called in array context, they return all values.
 
+B<true> values should be specified as 1 and B<false> values as 0.  Future API changes may provide different functions when other values are used.
+
 =head1 METHODS
 
 Access methods may exist for subject name components that are not listed here.  To test for these, use code of the form:
@@ -1764,7 +1781,9 @@ Every program should call C<setAPIversion(1)>.
 
 Constructor, creates a new object containing the parsed PKCS #10 certificate request.
 
-C<$csr> may be a scalar containing the request, or a file handle from which to read it.
+C<$csr> may be a scalar containing the request, a file name, or a file handle from which to read it.
+
+If a file name is specified, the C<readFile> option must be specified.
 
 If a file handle is supplied, the caller should specify C<< acceptPEM => 0 >> if the contents are DER.
 
@@ -1779,6 +1798,10 @@ Returns C<undef> if there is an I/O error or the request can not be parsed succe
 Call C<error()> to obtain more detail.
 
 =head3 options
+
+The options are specified as C<< name => value >>.
+
+If the first option is a HASHREF, it is expanded and any remaining options are added.
 
 =over 4
 
@@ -1810,6 +1833,14 @@ accept CSRs prefixed with '> ', as e-mail when the PEM is inadvertently quoted. 
 BEGIN and END lines may not be corrupted.
 
 If B<false>, invalid base64 characters in PEM data will cause the CSR to be rejected.
+
+The default is B<false>.
+
+=item readFile
+
+If B<true>, C<$csr> is the name of a file containing the CSR.
+
+If B<false>, C<$csr> contains the CSR or is an open file handle.
 
 The default is B<false>.
 

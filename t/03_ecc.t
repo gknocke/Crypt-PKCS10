@@ -30,16 +30,11 @@ ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
 
 my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 
-my $file = File::Spec->catpath( @dirpath, 'csr4.pem' );
-
 my $decoded;
-if( open( my $csr, '<', $file ) ) {
-    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
-} else {
-    BAIL_OUT( "$file: $!\n" );;
-}
+$decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr4.pem' ),
+                               readFile => 1, escapeStrings => 1 );
 
-isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+isnt( $decoded, undef, 'load PEM from file' ) or BAIL_OUT( Crypt::PKCS10->error );
 
 is( scalar $decoded->subject, '/C=AU/ST=Some-State/O=Internet Widgits Pty Ltd', 'subject' );
 
@@ -128,15 +123,10 @@ is_deeply( $decoded->subjectPublicKeyParams(1), {
                                                 }, 'detailed EC parameters' );
 
 
-$file = File::Spec->catpath( @dirpath, 'csr6.pem' );
+$decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr6.pem' ),
+                               readFile => 1, escapeStrings => 1 );
 
-if( open( my $csr, '<', $file ) ) {
-    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
-} else {
-    BAIL_OUT( "$file: $!\n" );;
-}
-
-isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+isnt( $decoded, undef, 'load PEM from file' ) or BAIL_OUT( Crypt::PKCS10->error );
 
 is( $decoded->pkAlgorithm, 'ecPublicKey', 'encryption algorithm' );
 
@@ -150,21 +140,14 @@ is_deeply( $decoded->subjectPublicKeyParams,
 
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );
 
-$file = File::Spec->catpath( @dirpath, 'csr7.pem' );
-
-if( open( my $csr, '<', $file ) ) {
-    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
-} else {
-    BAIL_OUT( "$file: $!\n" );;
-}
+$decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr7.pem' ),
+                               readFile => 1, escapeStrings => 1 );
 
 is( $decoded, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
 
-if( open( my $csr, '<', $file ) ) {
-    $decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1, verifySignature => 0 );
-} else {
-    BAIL_OUT( "$file: $!\n" );;
-}
+$decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr7.pem' ),
+                               readFile => 1, escapeStrings => 1, verifySignature => 0 );
+
 isnt( $decoded, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
 
 ok( !$decoded->checkSignature, 'checkSignature returns false' );

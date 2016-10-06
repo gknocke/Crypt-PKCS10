@@ -206,20 +206,16 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 
-    if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
+    $decoded = Crypt::PKCS10->new( $file, readFile => 1 );
 
-    isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+    isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
 
     my $der = $decoded->csrRequest;
 
     $file = File::Spec->catpath( @dirpath, 'csr1.cer' );
 
     if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
+	$decoded = Crypt::PKCS10->new( $csr, { acceptPEM => 0, }, escapeStrings => 0 );
     } else {
 	BAIL_OUT( "$file: $!\n" );;
     }
@@ -293,28 +289,21 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     is( $bad, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
 
-    if( open( my $csr, '<', $file ) ) {
-	$bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0, verifySignature => 0 );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
+    $bad = Crypt::PKCS10->new( $file, readFile =>1, acceptPEM => 0, escapeStrings => 0,
+                               verifySignature => 0 );
     isnt( $bad, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
 
     ok( !$bad->checkSignature, 'checkSignature returns false' );
     ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
 
     $file = File::Spec->catpath( @dirpath, 'csr8.pem' );
-    if( open( my $csr, '<', $file ) ) {
-	is( Crypt::PKCS10->new( $csr ), undef, 'reject invalid base64' );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
-    if( open( my $csr, '<', $file ) ) {
-	$bad = Crypt::PKCS10->new( $csr, ignoreNonBase64 => 1 );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
-    isnt( $bad, undef, 'accept invalid base64' ) or BAIL_OUT( "$file:" . Crypt::PKCS10->error );
+
+    is( Crypt::PKCS10->new( $file, readFile => 1 ), undef, 'reject invalid base64' );
+
+    $bad = Crypt::PKCS10->new( $file, readFile => 1, ignoreNonBase64 => 1 );
+
+    isnt( $bad, undef, 'accept invalid base64' ) or BAIL_OUT( Crypt::PKCS10->error );
+
     my $good = << 'GOOD';
 -----BEGIN CERTIFICATE REQUEST-----
 MIICuzCCAiQCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENOMIGfMA0GCSqG
@@ -618,7 +607,7 @@ subtest 'Microsoft extensions' => sub {
 };
 
 subtest 'stringify object' => sub {
-    plan tests => 4;
+    plan tests => 9;
 
     my $string = eval {
 	local $SIG{__WARN__} = sub { die $_[0] };
@@ -626,7 +615,7 @@ subtest 'stringify object' => sub {
 	return "$decoded";
     };
 
-    is( $@, '', 'no exception' );
+    cmp_ok( $@, 'eq', '', 'no exception' );
 
     isnt( $string, undef, 'returns something' );
 
@@ -634,20 +623,20 @@ subtest 'stringify object' => sub {
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
     like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );
+    like( $string, qr(^publicExponent\s*:[ ]10001)msx, 'string includes RSA public key' );
+    like( $string, qr(^-----BEGIN PUBLIC KEY-----$)ms, 'string includes public key PEM' );
+    like( $string, qr(^-----END PUBLIC KEY-----$)ms, 'string closes public key PEM' );
+    like( $string, qr(^-----BEGIN CERTIFICATE REQUEST-----$)ms, 'string includes CSR PEM' );
+    like( $string, qr(^-----END CERTIFICATE REQUEST-----$)ms, 'string closes CSR PEM' );
 };
 
 subtest 'DSA requests' => sub {
     plan tests => 4;
 
-    my $file = File::Spec->catpath( @dirpath, 'csr5.pem' );
+    $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr5.pem' ),
+                                       readFile =>1, escapeStrings => 1 );
 
-    if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
-
-    isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+    isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
 
     is( $decoded->signatureAlgorithm, 'dsaWithSha256', 'DSA signature' );
 
