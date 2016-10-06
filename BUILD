@@ -2,6 +2,11 @@ To build a distribution kit:
 
 Clone the git repository & cd to it
 
+Make any changes.
+
+Make sure any executables are marked properly in the index:
+  git update-index --chmod +x file
+
 Commit any changes.
 
 Install Dist::Zilla from CPAN (has many dependencies, takes a LONG time)
@@ -31,6 +36,8 @@ Test the distribution:
   dzil test
 
 Check to make sure that no extra files were included - update dist.ini if so.
+  tar -tzf <dist>.tgz | less
+  Note that build doesn't empty the build directory (a Dist::Zilla bug)
 
 To Release
  dzil release --trial

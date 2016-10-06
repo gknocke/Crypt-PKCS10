@@ -155,6 +155,16 @@ Call `error()` to obtain more detail.
 
     The default is **true**.
 
+- ignoreNonBase64
+
+    If **true**, most invalid base64 characters in PEM data will be ignored.  For example, this will
+    accept CSRs prefixed with '> ', as e-mail when the PEM is inadvertently quoted.  Note that the
+    BEGIN and END lines may not be corrupted.
+
+    If **false**, invalid base64 characters in PEM data will cause the CSR to be rejected.
+
+    The default is **false**.
+
 - verifySignature
 
     If **true**, the CSR's signature is checked.  If verification fails, `new` will fail.
@@ -674,15 +684,19 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
 
      - Verify signature of CSRs in new() by default.  Add checkSignature().
 
+     - Optionally allow invalid base64 character in PEM data.
+
     
 
 For a more detailed list of changes, see `Commitlog` in the distribution.
 
 # EXAMPLES
 
-In addition to the code snippets contained in this document, the `t/` directory of the distribution
-contains a number of tests that exercise the API.  Although artificial, they are a good source of
-examples.
+In addition to the code snippets contained in this document, the `examples/` directory of the distribution
+contains some sample utilitiles.
+
+Also, the `t/` directory of the distribution contains a number of tests that exercise the
+API.  Although artificial, they are another good source of examples.
 
 Note that the type of data returned when extracting attributes and extensions is dependent
 on the specific OID used.

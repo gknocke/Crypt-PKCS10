@@ -30,5 +30,6 @@ t/csr4.pem
 t/csr5.pem
 t/csr6.pem
 t/csr7.pem
+t/csr8.pem
 weaver.ini
 xt/01_Kwalitee.t

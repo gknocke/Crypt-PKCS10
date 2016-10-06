@@ -287,7 +287,7 @@ sub _listOIDs {
 sub setAPIversion {
     my( $class, $version ) = @_;
 
-    croak( ($error = "Wrong number of arguments\n") ) unless( @_ == 2 );
+    croak( ($error = "Wrong number of arguments\n") ) unless( @_ == 2 && defined $class );
     $version = 0 unless( defined $version );
     croak( ($error = "Unsupported API version $version\n") ) unless( $version >= 0 && $version <= 1 );
     $apiVersion = $version;
@@ -306,7 +306,9 @@ sub name2oid {
     my $class = shift;
     my( $oid ) = @_;
 
-    return unless( defined $oid && $apiVersion > 0 );
+    croak( "Class not specifed for name2oid()\n" ) unless( defined $class );
+
+    return unless( defined $oid && defined $apiVersion && $apiVersion > 0 );
 
     return $name2oid{$oid};
 }
@@ -315,7 +317,9 @@ sub oid2name {
     my $class = shift;
     my( $oid ) = @_;
 
-    return $oid unless( $apiVersion > 0 );
+    croak( "Class not specifed for oid2name()\n" ) unless( defined $class );
+
+    return $oid unless( defined $apiVersion && $apiVersion > 0 );
 
     return $class->_oid2name( @_ );
 }
@@ -342,6 +346,8 @@ sub _oid2name {
 sub registerOID {
     my( $class, $oid, $longname, $shortname ) = @_;
 
+    croak( "Class not specifed for registerOID()\n" ) unless( defined $class );
+
     unless( defined $apiVersion ) {
 	carp( "${class}::setAPIversion MUST be called before registerOID().  Defaulting to legacy mode\n" );
 	$class->setAPIversion(0);
@@ -349,17 +355,17 @@ sub registerOID {
 
     return exists $oids{$oid} || exists $oid2extkeyusage{$oid} if( @_ == 2 && defined $oid );
 
-    croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && ( defined $longname || defined $shortname ) );
-    croak( "Invalid OID $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
+    croak( "Not enough arguments" )              unless( @_ >= 3 && defined $oid && ( defined $longname || defined $shortname ) );
+    croak( "Invalid OID $oid" )                  unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
 
     if( defined $longname ) {
         croak( "$oid already registered" )       if( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
         croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
     } else {
-        croak( "$oid not registered" ) unless( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
+        croak( "$oid not registered" )           unless( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
     }
-    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/,
-						                            values %shortnames );
+    croak( "$shortname already registered" )     if( defined $shortname && grep /^\U$shortname\E$/,
+						                                          values %shortnames );
 
     if( defined $longname ) {
         $oids{$oid} = $longname;
@@ -367,7 +373,7 @@ sub registerOID {
     } else {
         $longname = $class->_oid2name( $oid );
     }
-    $shortnames{$longname} = uc $shortname   if( defined $shortname );
+    $shortnames{$longname} = uc $shortname       if( defined $shortname );
     return 1;
 }
 
@@ -377,10 +383,11 @@ sub new {
     undef $error;
 
     my $self = eval {
+        die( "Insufficient arguments for new\n" ) unless( defined $class && @_ >= 1 );
 	return $class->_new( @_ );
     }; if( $@ ) {
 	$error = $@;
-	croak( $@ ) if( $apiVersion == 0 );
+	croak( $@ ) unless( $apiVersion );
 	return;
     }
 
@@ -389,6 +396,8 @@ sub new {
 
 sub error {
     my $class = shift;
+
+    croak( "Class not specifed for error()\n" ) unless( defined $class );
 
     return $error;
 }
@@ -403,15 +412,16 @@ sub _new {
     }
 
     my %options = (
-		   acceptPEM     => 1,
-		   escapeStrings => 1,
+                   acceptPEM       => 1,
+                   escapeStrings   => 1,
+                   ignoreNonBase64 => 0,
                    verifySignature => $apiVersion,
-		   @_
-		  );
+                   @_
+                  );
 
     my $self = {};
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|verifySignature)$/ } keys %options);
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|verifySignature|ignoreNonBase64)$/ } keys %options);
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -432,13 +442,14 @@ sub _new {
     }
 
     if( $self->{_acceptPEM} && $der =~         # if PEM, convert to DER
-/^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s+(.*?)\s*^-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms ) {
+/^\r?-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?\n\s*(.*?)\s*^\r?-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?$/ms ) {
 	$der = $1;
 
 	# Some versions of MIME::Base64 check the input.  Some don't.  Those that do
 	# seem to obey -w, but not 'use warnings'.  So we'll check here.
 
 	$der =~ s/\s+//g; # Delete whitespace, which is legal but meaningless
+        $der =~ tr~A-Za-z0-9+=/~~cd if( $self->{_ignoreNonBase64} );
 
 	unless( $der =~ m{\A[A-Za-z0-9+/]+={0,2}\z} && ( length( $der ) % 4 == 0 ) ) {
 	    warn( "Invalid base64 encoding\n" ); # Invalid character or length
@@ -1792,6 +1803,15 @@ to a human.
 
 The default is B<true>.
 
+=item ignoreNonBase64
+
+If B<true>, most invalid base64 characters in PEM data will be ignored.  For example, this will
+accept CSRs prefixed with '> ', as e-mail when the PEM is inadvertently quoted.  Note that the
+BEGIN and END lines may not be corrupted.
+
+If B<false>, invalid base64 characters in PEM data will cause the CSR to be rejected.
+
+The default is B<false>.
 
 =item verifySignature
 

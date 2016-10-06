@@ -31,7 +31,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 31;
+    plan tests => 34;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -42,7 +42,7 @@ subtest 'Basic functions' => sub {
     can_ok( 'Crypt::PKCS10', qw/setAPIversion name2oid oid2name registerOID new error csrRequest subject
                                 subjectAltName version pkAlgorithm subjectPublicKey signatureAlgorithm
                                 signature attributes certificateTemplate extensions extensionValue
-                                extensionPresent/ );
+                                extensionPresent subjectPublicKeyParams signatureParams checkSignature/ );
 
     # Dynamically-generated fixed accessor methods
 
@@ -302,6 +302,37 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     ok( !$bad->checkSignature, 'checkSignature returns false' );
     ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
+
+    $file = File::Spec->catpath( @dirpath, 'csr8.pem' );
+    if( open( my $csr, '<', $file ) ) {
+	is( Crypt::PKCS10->new( $csr ), undef, 'reject invalid base64' );
+    } else {
+	BAIL_OUT( "$file: $!\n" );;
+    }
+    if( open( my $csr, '<', $file ) ) {
+	$bad = Crypt::PKCS10->new( $csr, ignoreNonBase64 => 1 );
+    } else {
+	BAIL_OUT( "$file: $!\n" );;
+    }
+    isnt( $bad, undef, 'accept invalid base64' ) or BAIL_OUT( "$file:" . Crypt::PKCS10->error );
+    my $good = << 'GOOD';
+-----BEGIN CERTIFICATE REQUEST-----
+MIICuzCCAiQCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENOMIGfMA0GCSqG
+SIb3DQEBAQUAA4GNADCBiQKBgQC95h0aRkhNcqBrktxNXzOGgurp/vkUDFKNda/ruTMeOlPvXRGI
+S+kWm8tbahrEXp47bOu1usA7k2EWLQyqm5sdjwXtVyLos5Nw18hG2acHqbQSV8ZtYPR8xwpXzZYd
+FghwVo/Clu3jD1c5Cm0oofZSD/5c9JXmXgBWdySjlkxfRwIDAQABoIIBVjAaBgorBgEEAYI3DQID
+MQwWCjYuMS43NjAxLjIwMwYJKwYBBAGCNxUUMSYwJAIBCQwGU2NyZWFtDA5TY3JlYW1cdGltb3Ro
+ZQwHY2VydHJlcTBCBgorBgEEAYI3DQIBMTQwMh4mAEMAZQByAHQAaQBmAGkAYwBhAHQAZQBUAGUA
+bQBwAGwAYQB0AGUeCABVAHMAZQByMFcGCSqGSIb3DQEJDjFKMEgwFwYJKwYBBAGCNxQCBAoeCABV
+AHMAZQByMB0GA1UdDgQWBBTQ6yfAQdFGh07DGiOC14E3p9NQIDAOBgNVHQ8BAf8EBAMCB4AwZgYK
+KwYBBAGCNw0CAjFYMFYCAQIeTgBNAGkAYwByAG8AcwBvAGYAdAAgAFMAdAByAG8AbgBnACAAQwBy
+AHkAcAB0AG8AZwByAGEAcABoAGkAYwAgAFAAcgBvAHYAaQBkAGUAcgMBADANBgkqhkiG9w0BAQUF
+AAOBgQBaKlxVOri+lsnuN+mj12I3zFeWcFMigq87N8VG+R2bfiq0voNCYNbvteEdPQJm99EA9tEF
+1Lm3u9U8cmTZAvUNO9A1NlPX8e660ra6WQN2IKfDZp4XX5qisg3tus7WTfG7aLNx7HGTQt7c2f7A
+lhuoQJZsCpGrcxIFmsY3yB/bTw==
+-----END CERTIFICATE REQUEST-----
+GOOD
+    cmp_ok( $bad->csrRequest(1), 'eq', $good, 'correct invalid base64' );
 };
 
 subtest 'attribute functions' => sub {
