@@ -69,7 +69,7 @@
    "provides" : {
       "Crypt::PKCS10" : {
          "file" : "lib/Crypt/PKCS10.pm",
-         "version" : "1.601"
+         "version" : "1.7"
       }
    },
    "release_status" : "stable",
@@ -84,7 +84,7 @@
          "web" : "https://github.com/gknocke/Crypt-PKCS10"
       }
    },
-   "version" : "1.601",
+   "version" : "1.7",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"

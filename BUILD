@@ -7,6 +7,8 @@ Make any changes.
 Make sure any executables are marked properly in the index:
   git update-index --chmod +x file
 
+Make sure any binary or special line-ending files are on .gitignore
+
 Commit any changes.
 
 Install Dist::Zilla from CPAN (has many dependencies, takes a LONG time)
@@ -18,7 +20,7 @@ Install Dist::Zilla::Plugin::Signature # If you plan to sign your distributions.
                                        # Otherwise, comment-out the [Signature] in dist.ini
 Install Pod::Readme
 
-Update the version number in lib/PKCS10.pm
+Update the version number in lib/PKCS10.pm (and Changes)
 Make any README changes in lib/PKCS10.pm
 Update copyrights.
 

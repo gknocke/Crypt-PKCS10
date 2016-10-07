@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.601
+version 1.7
 
 # SYNOPSIS
 
@@ -682,7 +682,7 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
 
     
 
-    1.6_01
+    1.7
 
      - ECC test doesn't require Data::Dumper
 
