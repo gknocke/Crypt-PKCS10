@@ -93,7 +93,18 @@ Revision history for perl module Crypt::PKCS10
 1.6
  - Support some EC OIDs
 
-1.6_01
+1.7
  - ECC test doesn't require Data::Dumper
+ - Support more EC OIDs
+ - Add DSA OIDs
+ - Add subjectPublicKeyParams(), which provides some description of the key
+ - Add certificationRequest and signature(1) to enable verification of CSR signatures
+ - Add signatureParams()
+ - Add signature(2) to extract ECDSA signature components.
+ - Fix and extend registerOID, add tests.
+ - Add examples/ directory with sample code
+ - Verify signature of CSRs in new() by default.  Add checkSignature().
+ - Optionally allow invalid base64 character in PEM data.
+ - Allow new() from filename and options from hashref.
 
 __END__

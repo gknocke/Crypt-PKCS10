@@ -17,12 +17,12 @@ use Carp;
 
 use overload( q("") => \&_stringify );
 
-use Convert::ASN1;
+use Convert::ASN1( qw/:tag :const/ );
 use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
 
-our $VERSION = 1.6_01;
+our $VERSION = 1.7;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 my $error;
@@ -76,6 +76,38 @@ my %oids = (
     '1.2.840.10045.4.3.2'           => 'ecdsa-with-SHA256',
     '1.2.840.10045.4.3.3'           => 'ecdsa-with-SHA384',
     '1.2.840.10045.4.3.4'           => 'ecdsa-with-SHA512',
+    '1.3.36.3.3.2.8.1.1.1'          => 'brainpoolP160r1',
+    '1.3.36.3.3.2.8.1.1.2'          => 'brainpoolP160t1',
+    '1.3.36.3.3.2.8.1.1.3'          => 'brainpoolP192r1',
+    '1.3.36.3.3.2.8.1.1.4'          => 'brainpoolP192t1',
+    '1.3.36.3.3.2.8.1.1.5'          => 'brainpoolP224r1',
+    '1.3.36.3.3.2.8.1.1.6'          => 'brainpoolP224t1',
+    '1.3.36.3.3.2.8.1.1.7'          => 'brainpoolP256r1',
+    '1.3.36.3.3.2.8.1.1.8'          => 'brainpoolP256t1',
+    '1.3.36.3.3.2.8.1.1.9'          => 'brainpoolP320r1',
+    '1.3.36.3.3.2.8.1.1.10'         => 'brainpoolP320t1',
+    '1.3.36.3.3.2.8.1.1.11'         => 'brainpoolP384r1',
+    '1.3.36.3.3.2.8.1.1.12'         => 'brainpoolP384t1',
+    '1.3.36.3.3.2.8.1.1.13'         => 'brainpoolP512r1',
+    '1.3.36.3.3.2.8.1.1.14'         => 'brainpoolP512t1',
+    '1.2.840.10045.3.1.1'           => 'secp192r1',
+    '1.3.132.0.1'                   => 'sect163k1',
+    '1.3.132.0.15'                  => 'sect163r2',
+    '1.3.132.0.33'                  => 'secp224r1',
+    '1.3.132.0.26'                  => 'sect233k1',
+    '1.3.132.0.27'                  => 'sect233r1',
+    '1.3.132.0.16'                  => 'sect283k1',
+    '1.3.132.0.17'                  => 'sect283r1',
+    '1.2.840.10045.3.1.7'           => 'secp256r1',
+    '1.3.132.0.34'                  => 'secp384r1',
+    '1.3.132.0.36'                  => 'sect409k1',
+    '1.3.132.0.37'                  => 'sect409r1',
+    '1.3.132.0.35'                  => 'secp521r1',
+    '1.3.132.0.38'                  => 'sect571k1',
+    '1.3.132.0.39'                  => 'sect571r1',
+#not std yet    '1.3.6.1.4.1.3029.1.5.1'        => 'curve25519', # GNU TLS
+#   '1.3.6.1.4.1.11591.7'           => 'curve25519', #ID josefsson-pkix-newcurves-00
+#   '1.3.6.1.4.1.11591.8'           => 'curve448', #ID josefsson-pkix-newcurves-00
     '0.9.2342.19200300.100.1.25'    => 'domainComponent',
     '0.9.2342.19200300.100.1.1'     => 'userID',
     '2.5.4.7'                       => 'localityName',
@@ -96,6 +128,13 @@ my %oids = (
     '1.3.6.1.5.2.3.5'               => [ 'keyPurposeKdc', 'KDC Authentication' ],
     '1.3.6.1.5.5.7.9.5'             => 'countryOfResidence',
     '2.16.840.1.101.3.4.2.1'        => [ 'sha256', 'SHA-256' ],
+    '2.16.840.1.101.3.4.2.2'        => [ 'sha384', 'SHA-384' ],
+    '2.16.840.1.101.3.4.2.3'        => [ 'sha512', 'SHA-512' ],
+    '2.16.840.1.101.3.4.2.4'        => [ 'sha224', 'SHA-224' ],
+    '2.16.840.1.101.3.4.3.1'        => 'dsaWithSha224',
+    '2.16.840.1.101.3.4.3.2'        => 'dsaWithSha256',
+    '2.16.840.1.101.3.4.3.3'        => 'dsaWithSha384',
+    '2.16.840.1.101.3.4.3.4'        => 'dsaWithSha512',
     '2.5.4.12'                      => [ 'title', 'Title' ],
     '2.5.4.13'                      => [ 'description', 'Description' ],
     '2.5.4.14'                      => 'searchGuide',
@@ -248,8 +287,9 @@ sub _listOIDs {
 sub setAPIversion {
     my( $class, $version ) = @_;
 
+    croak( ($error = "Wrong number of arguments\n") ) unless( @_ == 2 && defined $class );
     $version = 0 unless( defined $version );
-    croak( ($error = "Unsupported API version $version\n" ) ) unless( $version >= 0 && $version <= 1 );
+    croak( ($error = "Unsupported API version $version\n") ) unless( $version >= 0 && $version <= 1 );
     $apiVersion = $version;
 
     $version = !$version || 0;
@@ -266,7 +306,9 @@ sub name2oid {
     my $class = shift;
     my( $oid ) = @_;
 
-    return unless( defined $oid && $apiVersion > 0 );
+    croak( "Class not specifed for name2oid()\n" ) unless( defined $class );
+
+    return unless( defined $oid && defined $apiVersion && $apiVersion > 0 );
 
     return $name2oid{$oid};
 }
@@ -275,7 +317,9 @@ sub oid2name {
     my $class = shift;
     my( $oid ) = @_;
 
-    return $oid unless( $apiVersion > 0 );
+    croak( "Class not specifed for oid2name()\n" ) unless( defined $class );
+
+    return $oid unless( defined $apiVersion && $apiVersion > 0 );
 
     return $class->_oid2name( @_ );
 }
@@ -297,9 +341,12 @@ sub _oid2name {
 # registerOID( $oid ) => true if $oid is registered, false if not
 # registerOID( $oid, $longname ) => Register an OID with its name
 # registerOID( $oid, $longname, $shortname ) => Register an OID with an abbreviation for RDNs.
+# registerOID( $oid, undef, $shortname ) => Register an abbreviation for RDNs for an existing OID
 
 sub registerOID {
     my( $class, $oid, $longname, $shortname ) = @_;
+
+    croak( "Class not specifed for registerOID()\n" ) unless( defined $class );
 
     unless( defined $apiVersion ) {
 	carp( "${class}::setAPIversion MUST be called before registerOID().  Defaulting to legacy mode\n" );
@@ -308,15 +355,25 @@ sub registerOID {
 
     return exists $oids{$oid} || exists $oid2extkeyusage{$oid} if( @_ == 2 && defined $oid );
 
-    croak( "Not enough arguments" )          unless( @_ >= 3 && defined $oid && defined $longname );
-    croak( "Invalid oid $oid" )              unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
-    croak( "$oid already registered" )       if( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
-    croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
-    croak( "$shortname already registered" ) if( defined $shortname && grep /^\U$shortname\E$/,
-						                            values %shortnames );
+    croak( "Not enough arguments" )              unless( @_ >= 3 && defined $oid && ( defined $longname || defined $shortname ) );
+    croak( "Invalid OID $oid" )                  unless( defined $oid && $oid =~ /^\d+(?:\.\d+)*$/ );
 
-    $oids{$oid} = $longname;
-    $shortnames{$longname} = uc $shortname   if( defined $shortname );
+    if( defined $longname ) {
+        croak( "$oid already registered" )       if( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
+        croak( "$longname already registered" )  if( grep /^$longname$/, values %oids );
+    } else {
+        croak( "$oid not registered" )           unless( exists $oids{$oid} || exists $oid2extkeyusage{$oid} );
+    }
+    croak( "$shortname already registered" )     if( defined $shortname && grep /^\U$shortname\E$/,
+						                                          values %shortnames );
+
+    if( defined $longname ) {
+        $oids{$oid} = $longname;
+        $name2oid{$longname} = $oid;
+    } else {
+        $longname = $class->_oid2name( $oid );
+    }
+    $shortnames{$longname} = uc $shortname       if( defined $shortname );
     return 1;
 }
 
@@ -326,10 +383,11 @@ sub new {
     undef $error;
 
     my $self = eval {
+        die( "Insufficient arguments for new\n" ) unless( defined $class && @_ >= 1 );
 	return $class->_new( @_ );
     }; if( $@ ) {
 	$error = $@;
-	croak( $@ ) if( $apiVersion == 0 );
+	croak( $@ ) unless( $apiVersion );
 	return;
     }
 
@@ -339,26 +397,37 @@ sub new {
 sub error {
     my $class = shift;
 
+    croak( "Class not specifed for error()\n" ) unless( defined $class );
+
     return $error;
 }
 
 sub _new {
     my $class  = shift;
     my $der    = shift;
-    my %options = (
-		   acceptPEM     => 1,
-		   escapeStrings => 1,
-		   @_
-		  );
 
     unless( defined $apiVersion ) {
 	carp( "${class}::setAPIversion MUST be called before new().  Defaulting to legacy mode\n" );
 	$class->setAPIversion(0);
     }
 
+    my %options = (
+                   acceptPEM       => 1,
+                   escapeStrings   => 1,
+                   readFile        => 0,
+                   ignoreNonBase64 => 0,
+                   verifySignature => $apiVersion,
+                  );
+
+    %options = ( %options, %{ shift @_ } ) if( @_ >= 1 && ref( $_[0] ) eq 'HASH' );
+
+    die( "Every option to new() must have a value\n" ) unless( @_ % 2 == 0 );
+
+    %options = ( %options, @_ ) if( @_ );
+
     my $self = {};
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM)$/ } keys %options);
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|readFile|verifySignature|ignoreNonBase64)$/ } keys %options);
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -369,23 +438,29 @@ sub _new {
 
     local $SIG{__WARN__} = sub { my $msg = $_[0]; $msg =~ s/\A(.*?) at .*\Z/$1/s; chomp $msg; die "$msg\n" };
 
+    if( $self->{_readFile} ) {
+        open( my $fh, '<', $der ) or croak( "Failed to open $der: $!" );
+        $der = $fh;
+    }
+
     if( Scalar::Util::openhandle( $der ) ) {
 	local $/;
 
 	binmode $der unless( $self->{_acceptPEM} );
 
-	$der = <$der>;
+	$der = <$der>;          # Note: this closes files opened by readFile
 	croak( "Failed to read request: $!\n" ) unless( defined $der );
     }
 
     if( $self->{_acceptPEM} && $der =~         # if PEM, convert to DER
-/^-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\s+(.*?)\s*^-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----$/ms ) {
+/^\r?-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?\n\s*(.*?)\s*^\r?-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?$/ms ) {
 	$der = $1;
 
 	# Some versions of MIME::Base64 check the input.  Some don't.  Those that do
 	# seem to obey -w, but not 'use warnings'.  So we'll check here.
 
 	$der =~ s/\s+//g; # Delete whitespace, which is legal but meaningless
+        $der =~ tr~A-Za-z0-9+=/~~cd if( $self->{_ignoreNonBase64} );
 
 	unless( $der =~ m{\A[A-Za-z0-9+/]+={0,2}\z} && ( length( $der ) % 4 == 0 ) ) {
 	    warn( "Invalid base64 encoding\n" ); # Invalid character or length
@@ -420,9 +495,7 @@ sub _new {
       ia5String       IA5String,
       integer         INTEGER}
 
-    Algorithms ::= CHOICE {
-        undef         ANY
-    }
+    Algorithms ::= ANY
 
     Name ::= SEQUENCE OF RelativeDistinguishedName
     RelativeDistinguishedName ::= SET OF AttributeTypeAndValue
@@ -579,6 +652,23 @@ sub _new {
     certificateTemplateName ::= CHOICE {
         octets          OCTET STRING,
         directoryString DirectoryString}
+
+    rsaKey ::= SEQUENCE {
+        modulus         INTEGER,
+        publicExponent  INTEGER}
+
+    dsaKey  ::= INTEGER
+
+    dsaPars ::= SEQUENCE {
+        P               INTEGER,
+        Q               INTEGER,
+        G               INTEGER}
+
+    eccName ::= OBJECT IDENTIFIER
+
+    ecdsaSigValue ::= SEQUENCE {
+        r               INTEGER,
+        s               INTEGER}
 ASN1
 
     $asn->registertype( 'qualifier', '1.3.6.1.5.5.7.2.1', $self->_init('CPSuri') );
@@ -589,7 +679,7 @@ ASN1
     my $top =
 	$parser->decode( $der ) or
 	  confess( "decode: " . $parser->error .
-		   "Cannot handle input or missing ASN.1 definitons" );
+		   "Cannot handle input or missing ASN.1 definitions" );
 
     $self->{certificationRequestInfo}{subject}
         = $self->_convert_rdn( $top->{certificationRequestInfo}{subject} );
@@ -612,6 +702,24 @@ ASN1
 
     $self->{signatureAlgorithm}
         = $self->_convert_signatureAlgorithm( $top->{signatureAlgorithm} );
+
+    # Extract bundle of bits that is signed
+    # The DER is SEQUENCE -- CertificationRequest
+    #              SEQUENCE -- CertificationRequestInfo [SIGNED]
+
+    my( $CRtaglen, $CRtag, $CRllen, $CRlen );
+    ($CRtaglen, undef, $CRtag) = asn_decode_tag2( $der );
+    croak( "Invalid CSR format" ) unless( $CRtag == ASN_SEQUENCE );
+    ($CRllen, $CRlen) = asn_decode_length( substr( $der, $CRtaglen ) );
+
+    my( $CItaglen, $CItag, $CIllen, $CIlen );
+    ($CItaglen, undef, $CItag) = asn_decode_tag2( substr( $der, $CRtaglen + $CRllen ) );
+    croak( "Invalid CSR format" ) unless( $CItag == ASN_SEQUENCE );
+    ($CIllen, $CIlen) = asn_decode_length( substr( $der, $CRtaglen + $CRllen + $CItaglen ) );
+
+    $self->{_signed} = substr( $der, $CRtaglen +  $CRllen, $CItaglen + $CIllen + $CIlen );
+
+    croak( $error ) if( $self->{_verifySignature} && !$self->checkSignature );
 
     return $self;
 }
@@ -680,9 +788,6 @@ sub _convert_signatureAlgorithm {
 	  if( defined $signatureAlgorithm->{algorithm}
 	    && exists $oids{$signatureAlgorithm->{algorithm}} );
 
-    if ($signatureAlgorithm->{parameters}{undef}) {
-        delete ($signatureAlgorithm->{parameters});
-    }
     return $signatureAlgorithm;
 }
 
@@ -695,9 +800,6 @@ sub _convert_pkinfo {
         = $oids{$pkinfo->{algorithm}{algorithm}}
 	  if( defined $pkinfo->{algorithm}{algorithm}
 	    && exists $oids{$pkinfo->{algorithm}{algorithm}} );
-    if ($pkinfo->{algorithm}{parameters}{undef}) {
-        delete ($pkinfo->{algorithm}{parameters});
-    }
     return $pkinfo;
 }
 
@@ -1057,14 +1159,96 @@ sub subjectPublicKey {
     return unpack('H*', $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0]);
 }
 
+sub subjectPublicKeyParams {
+    my $self = shift;
+    my $detail = shift;
+
+    croak( "Requires API version 1\n" ) unless( $apiVersion >= 1 );
+
+    my $rv = {};
+    my $at = $self->pkAlgorithm;
+    if( $at eq 'ecPublicKey' ) {
+        $rv->{keytype} = 'ECC';
+
+        require Crypt::PK::ECC;
+
+        my $key = $self->subjectPublicKey(1);
+        $key = Crypt::PK::ECC->new( \$key )->key2hash;
+        $rv->{keylen} = $key->{curve_bits};
+        $rv->{pub_x}  = $key->{pub_x};
+        $rv->{pub_y}  = $key->{pub_y};
+        $rv->{detail} = { %$key } if( $detail );
+
+        my $par = $self->_init( 'eccName' );
+        $rv->{curve} = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} );
+        $rv->{curve} = $self->_oid2name( $rv->{curve} );
+    } elsif( $at eq 'rsaEncryption' ) {
+        $rv->{keytype} = 'RSA';
+        my $par = $self->_init( 'rsaKey' );
+        my $rsa = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0] );
+        $rv->{keylen} = 4 * ( length( $rsa->{modulus}->as_hex ) -2 ); # 2 == length( '0x' )
+        $rv->{modulus} = substr( $rsa->{modulus}->as_hex, 2 );
+        $rv->{publicExponent} = ( ref( $rsa->{publicExponent} )?
+                                  $rsa->{publicExponent}->as_hex :
+                                  sprintf( '%x', $rsa->{publicExponent} ) );
+    } elsif( $at eq 'dsa' ) {
+        $rv->{keytype} = 'DSA';
+        my $par = $self->_init( 'dsaKey' );
+        my $dsa = $par->decode( $self->{certificationRequestInfo}{subjectPKInfo}{subjectPublicKey}[0] );
+        $rv->{keylen} = 4 * ( length( $dsa->as_hex ) -2 );
+        if( exists $self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters} ) {
+            $par = $self->_init('dsaPars');
+            $dsa = $par->decode($self->{certificationRequestInfo}{subjectPKInfo}{algorithm}{parameters});
+            $rv->{G} = substr( $dsa->{G}->as_hex, 2 );
+            $rv->{P} = substr( $dsa->{P}->as_hex, 2 );
+            $rv->{Q} = substr( $dsa->{Q}->as_hex, 2 );
+        }
+    } else {
+        $rv->{keytype} = undef;
+    }
+    return $rv;
+}
+
 sub signatureAlgorithm {
     my $self = shift;
     return $self->{signatureAlgorithm}{algorithm};
 }
 
+sub signatureParams {
+    my $self = shift;
+
+    if( exists $self->{signatureAlgorithm}{parameters} ) {
+        my( $tlen, undef, $tag ) = asn_decode_tag2( $self->{signatureAlgorithm}{parameters} );
+        if( $tlen != 0 && $tag != ASN_NULL ) {
+            return $self->{signatureAlgorithm}{parameters}
+        }
+    }
+    # Known algorithm's parameters MAY return a hash of decoded fields.
+    # For now, leaving that to the caller...
+
+    return;
+}
+
 sub signature {
     my $self = shift;
-    unpack('H*', $self->{signature}[0]);
+    my $format = shift;
+
+    if( defined $format && $format == 2 ) { # Per keytype decoding
+        if( $self->pkAlgorithm eq 'ecPublicKey' ) { # ECDSA
+            my $par = $self->_init( 'ecdsaSigValue' );
+            return $par->decode( $self->{signature}[0] );
+        }
+        return;                             # Unknown
+    }
+    return $self->{signature}[0] if( $format );
+
+    return unpack('H*', $self->{signature}[0]);
+}
+
+sub certificationRequest {
+    my $self = shift;
+
+    return $self->{_signed};
 }
 
 sub _attributes {
@@ -1266,6 +1450,84 @@ sub extensionPresent {
     return;
 }
 
+sub checkSignature {
+    my $self = shift;
+
+    undef $error;
+
+    my $ok = eval {
+        croak( "checkSignature requires API version 1\n" ) unless( $apiVersion >= 1 );
+
+        my $key = $self->subjectPublicKey(1); # Key as PEM
+        my $sig = $self->signature(1);        # Signature as DER
+        my $alg = $self->signatureAlgorithm;  # Algorithm name
+
+        # Determine the signature hash type from the algorithm name
+
+        my( $hash, $hashmod, $hashfcn ); # hashnnn, Digest::mod, Digest::mod::fcn
+        if( $alg =~ /sha-?(\d+)/i ) {
+            $hash = "sha$1";
+            $hashmod = 'Digest::SHA';
+            $hashfcn = "Digest::SHA::$hash";
+        } elsif( $alg =~ /md-?(\d)/i ) {
+            $hash = "md$1";
+            $hashmod = "Digest::MD$1";
+            $hashfcn = "Digest::MD$1::$hash";
+        } else {
+            croak( "Unknown hash in signature algorithm $alg\n" );
+        }
+
+        my $keyp = $self->subjectPublicKeyParams;
+
+        croak( "Unknown public key type\n" ) unless( defined $keyp->{keytype} );
+
+        # Verify signature using the correct module and hash type.
+
+        if( $keyp->{keytype} eq 'RSA' ) {
+            require Crypt::OpenSSL::RSA;
+
+            $key = Crypt::OpenSSL::RSA->new_public_key( $key );
+            $hash = "use_${hash}_hash";
+            $key->$hash;
+            $key->use_pkcs1_padding;
+            return $key->verify( $self->certificationRequest, $sig );
+        }
+
+        if( $keyp->{keytype} eq 'DSA' ) {
+            require Crypt::OpenSSL::DSA;
+            eval "require $hashmod" or croak( $@ ); ## no critic
+
+            if( 0 ) { # For DistZilla
+                require Digest::SHA;
+                require Digest::MD5;
+                require Digest::MD4;
+                require Digest::MD2;
+            }
+
+            my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $key );
+            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic
+        }
+
+        if( $keyp->{keytype} eq 'ECC' ) {
+            require Crypt::PK::ECC;
+
+            $key = Crypt::PK::ECC->new( \$key );
+            return $key->verify_message( $sig, $self->certificationRequest, uc($hash) );
+        }
+
+        croak( "Unknown key type $keyp->{keytype}\n" );
+    };
+    if( $@ ) {
+        $error = $@;
+        return;
+    }
+    return 1 if( $ok );
+
+    $error = "Incorrect signature";
+
+    return 0;
+}
+
 sub _wrap {
     my( $to, $text ) = @_;
 
@@ -1283,6 +1545,25 @@ sub _stringify {
     my $self = shift;
 
     local $self->{_escapeStrings} = 0;
+    local( $@, $_, $! );
+
+    my $v = $apiVersion;
+    $self->setAPIversion( 1 ) unless( defined $v && $v == 1 );
+
+    my $string = eval {
+        $self->__stringify;
+    };
+    my $at = $@;
+    $self->setAPIversion( $v ) unless( defined $v && $v == 1 );
+
+    $string = '' unless( defined $string );
+    $string .= $at if( $at );
+
+    return $string;
+}
+
+sub __stringify {
+    my $self = shift;
 
     my $max = 0;
     foreach ($self->attributes, $self->extensions,
@@ -1319,8 +1600,43 @@ sub _stringify {
     $string .= sprintf( "%-*s: %s\n", $max, 'Key algorithm', $self->pkAlgorithm );
     $string .= sprintf( "%-*s: %s\n", $max, 'Public key', _wrap( $max+2, $self->subjectPublicKey ) );
     $string .= $self->subjectPublicKey(1);
-    $string .= sprintf( "%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
+    my $kp = $self->subjectPublicKeyParams(1);
+    foreach (sort keys %$kp) {
+        my $v = $kp->{$_};
+
+        if( !defined $v ) {
+            $v = 'undef';
+        } elsif( ref $v ) {
+            next;
+        }
+        $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $v ) );
+    }
+    if( exists $kp->{detail} ) {
+        $kp = $kp->{detail};
+        $string .= "Key details\n-----------\n";
+        foreach (sort keys %$kp) {
+            next if( ref $kp->{$_} );
+            $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $kp->{$_} ) );
+        }
+    }
+
+    $string .= sprintf( "\n%-*s: %s\n", $max, 'Signature algorithm', $self->signatureAlgorithm );
     $string .= sprintf( "%-*s: %s\n", $max, 'Signature', _wrap( $max+2, $self->signature ) );
+    my $sp = $self->signature(2);
+    if( $sp ) {
+        foreach (sort keys %$sp) {
+            my $v = $sp->{$_};
+
+            if( ref $v ) {
+                if( $v->can('as_hex') ) {
+                    $v = substr( $v->as_hex, 2 );
+                } else {
+                    next;
+                }
+            }
+            $string .= sprintf( "%-*s: %s\n", $max, $_, _wrap( $max+2, $v ) );
+        }
+    }
 
     $string .= "\n          --Request--\n" . $self->csrRequest(1);
 
@@ -1347,7 +1663,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 =head1 RELEASE NOTES
 
-Version 1.4 has several API changes.  Most users should have a painless migration.
+Version 1.4 made several API changes.  Most users should have a painless migration.
 
 ALL users must call Crypt::PKCS10->setAPIversion.  If not, a warning will be generated
 by the first class method called.  This warning will be made a fatal exception in a
@@ -1363,6 +1679,13 @@ new will accept an open file handle in addition to a request.
 Users are encouraged to migrate to the version 1 API.  It is much easier to use,
 and does not require the application to navigate internal data structures.
 
+Version 1.7 provides support for DSA and ECC public keys.  By default, it verifies
+the signature of CSRs.  It also allows the caller to verify the signature of a CSR.
+subjectPublicKeyParams and signatureParams provide additional information.
+The readFile option to new() will open() a file containing a CSR by name.
+The ignoreNonBase64 option allows PEM to contain extraneous characters.
+F<Changes> describes additional improvements.  Details follow.
+
 =head1 INSTALLATION
 
 To install this module type the following:
@@ -1374,7 +1697,19 @@ To install this module type the following:
 
 =head1 REQUIRES
 
-Convert::ASN1
+C<Convert::ASN1>
+
+C<Crypt::OpenSSL::DSA>
+
+C<Crypt::OpenSSL::RSA>
+
+C<Crypt::PK::ECC>
+
+C<Digest::SHA>
+
+For ECC: C<Crypt::PK::ECC>
+
+Very old CSRs may require C<DIGEST::MD{5,4,2}>
 
 =end :readme
 
@@ -1398,9 +1733,11 @@ C<Crypt::PKCS10> parses PKCS #10 certificate requests (CSRs) and provides access
 
 Common object identifiers will be translated to their corresponding names.
 Additionally, accessor methods allow extraction of single data fields.
-Bit Strings like signatures will be returned in their hexadecimal representation.
+The format of returned data varies by accessor.
 
 The access methods return the value corresponding to their name.  If called in scalar context, they return the first value (or an empty string).  If called in array context, they return all values.
+
+B<true> values should be specified as 1 and B<false> values as 0.  Future API changes may provide different functions when other values are used.
 
 =head1 METHODS
 
@@ -1444,7 +1781,9 @@ Every program should call C<setAPIversion(1)>.
 
 Constructor, creates a new object containing the parsed PKCS #10 certificate request.
 
-C<$csr> may be a scalar containing the request, or a file handle from which to read it.
+C<$csr> may be a scalar containing the request, a file name, or a file handle from which to read it.
+
+If a file name is specified, the C<readFile> option must be specified.
 
 If a file handle is supplied, the caller should specify C<< acceptPEM => 0 >> if the contents are DER.
 
@@ -1459,6 +1798,10 @@ Returns C<undef> if there is an I/O error or the request can not be parsed succe
 Call C<error()> to obtain more detail.
 
 =head3 options
+
+The options are specified as C<< name => value >>.
+
+If the first option is a HASHREF, it is expanded and any remaining options are added.
 
 =over 4
 
@@ -1482,6 +1825,32 @@ If B<false>, these strings are not '\'-escaped.  This is useful when they are be
 to a human.
 
 The default is B<true>.
+
+=item ignoreNonBase64
+
+If B<true>, most invalid base64 characters in PEM data will be ignored.  For example, this will
+accept CSRs prefixed with '> ', as e-mail when the PEM is inadvertently quoted.  Note that the
+BEGIN and END lines may not be corrupted.
+
+If B<false>, invalid base64 characters in PEM data will cause the CSR to be rejected.
+
+The default is B<false>.
+
+=item readFile
+
+If B<true>, C<$csr> is the name of a file containing the CSR.
+
+If B<false>, C<$csr> contains the CSR or is an open file handle.
+
+The default is B<false>.
+
+=item verifySignature
+
+If B<true>, the CSR's signature is checked.  If verification fails, C<new> will fail.
+
+If B<false>, the CSR's signature is not checked.
+
+The default is B<true> for API version 1 and B<false> for API version 0.
 
 =back
 
@@ -1509,6 +1878,12 @@ Not in API v0;
 Returns the binary (ASN.1) request (after conversion from PEM and removal of any data beyond the length of the ASN.1 structure.
 
 If $format is B<true>, the request is returned as a PEM CSR.  Otherwise as a binary string.
+
+=head2 certificationRequest
+
+Returns the binary (ASN.1) section of the request that is signed by the requestor.
+
+The caller can verify the signature using B<signatureAlgorithm>, B<certificationRequest> and B<signature(1)>.
 
 =head2 Access methods for the subject's distinguished name
 
@@ -1596,13 +1971,54 @@ If C<$format> is B<true>, the public key will be returned in PEM format.
 
 Otherwise, the public key will be returned in its hexadecimal representation
 
+=head2 subjectPublicKeyParams
+
+Returns a hash describing the public key.  The contents vary depending on
+the public key type.
+
+=head3 Standard items:
+
+C<keytype> - ECC, RSA, DSA
+
+C<keylen> - Approximate length of the key in bits.
+
+Other items include:
+
+For RSA, C<modulus> and C<publicExponent>.
+
+For DSA, C<G, P and Q>.
+
+For ECC, C<curve>, C<pub_x> and C<pub_y>.  C<curve> is an OID name.
+
+=head3 Additional detail
+
+C<subjectPublicKeyParams(1)> returns the standard items, and may
+also return C<detail>, which is a hashref.
+
+For ECC, the C<detail> hash includes the curve definition constants.
+
 =head2 signatureAlgorithm
 
 Returns the signature algorithm according to its object identifier.
 
-=head2 signature
+=head2 signatureParams
 
-The signature will be returned in its hexadecimal representation
+Returns the parameters associated with the B<signatureAlgorithm> as binary.
+Returns B<undef> if none, or if B<NULL>.
+
+Note: In the future, some B<signatureAlgorithm>s may return a hashref of decoded fields.
+
+Callers are advised to check for a ref before decoding...
+
+=head2 signature( $format )
+
+The CSR's signature is returned.
+
+If C<$format> is B<1>, in binary.
+
+If C<$format> is B<2>, decoded as an ECDSA signature - returns hashref to C<r> and C<s>.
+
+Otherwise, in its hexadecimal representation.
 
 =head2 attributes( $name )
 
@@ -1744,10 +2160,28 @@ The short name should be upper-case (and will be upcased).
 
 E.g. built-in are C<< $oid => '2.4.5.3', $longname => 'commonName', $shortname => 'CN' >>
 
+To register a shortname for an existing OID without one, specify C<$longname> as C<undef>.
+
+E.g. To register /E for emailAddress, use:
+  C<< Crypt::PKCS10->registerOID( '1.2.840.113549.1.9.1', undef, 'e' ) >>
+
 
 Generates an exception if any argument is not valid, or is in use.
 
 Returns B<true> otherwise.
+
+=head2 checkSignature
+
+Verifies the signature of a CSR.  (Useful if new() specified C<< verifySignature => 0 >>.)
+
+Returns true if the signature is OK.
+
+Returns false if the signature is incorrect.  C<< Crypt::PKCS10->error >> returns
+the reason.
+
+Returns undef if there was an error in the verification process (e.g. a required
+Perl module could not be loaded.)
+
 
 =head2 certificateTemplate
 
@@ -1779,6 +2213,8 @@ B<registerOID>.
  1.2.840.10040.4.1          dsa                        (DSA)
  1.2.840.10040.4.3          dsaWithSha1                (DSA with SHA1)
  1.2.840.10045.2.1          ecPublicKey
+ 1.2.840.10045.3.1.1        secp192r1
+ 1.2.840.10045.3.1.7        secp256r1
  1.2.840.10045.4.3.1        ecdsa-with-SHA224
  1.2.840.10045.4.3.2        ecdsa-with-SHA256
  1.2.840.10045.4.3.3        ecdsa-with-SHA384
@@ -1839,6 +2275,33 @@ B<registerOID>.
  1.3.6.1.5.5.7.3.22         sshServer
  1.3.6.1.5.5.7.9.5          countryOfResidence
  1.3.14.3.2.29              sha1WithRSAEncryption      (SHA1 with RSA signature)
+ 1.3.36.3.3.2.8.1.1.1       brainpoolP160r1
+ 1.3.36.3.3.2.8.1.1.2       brainpoolP160t1
+ 1.3.36.3.3.2.8.1.1.3       brainpoolP192r1
+ 1.3.36.3.3.2.8.1.1.4       brainpoolP192t1
+ 1.3.36.3.3.2.8.1.1.5       brainpoolP224r1
+ 1.3.36.3.3.2.8.1.1.6       brainpoolP224t1
+ 1.3.36.3.3.2.8.1.1.7       brainpoolP256r1
+ 1.3.36.3.3.2.8.1.1.8       brainpoolP256t1
+ 1.3.36.3.3.2.8.1.1.9       brainpoolP320r1
+ 1.3.36.3.3.2.8.1.1.10      brainpoolP320t1
+ 1.3.36.3.3.2.8.1.1.11      brainpoolP384r1
+ 1.3.36.3.3.2.8.1.1.12      brainpoolP384t1
+ 1.3.36.3.3.2.8.1.1.13      brainpoolP512r1
+ 1.3.36.3.3.2.8.1.1.14      brainpoolP512t1
+ 1.3.132.0.1                sect163k1
+ 1.3.132.0.15               sect163r2
+ 1.3.132.0.16               sect283k1
+ 1.3.132.0.17               sect283r1
+ 1.3.132.0.26               sect233k1
+ 1.3.132.0.27               sect233r1
+ 1.3.132.0.33               secp224r1
+ 1.3.132.0.34               secp384r1
+ 1.3.132.0.35               secp521r1
+ 1.3.132.0.36               sect409k1
+ 1.3.132.0.37               sect409r1
+ 1.3.132.0.38               sect571k1
+ 1.3.132.0.39               sect571r1
  2.5.4.3                    commonName
  2.5.4.4                    surname                    (Surname)
  2.5.4.5                    serialNumber
@@ -1874,6 +2337,13 @@ B<registerOID>.
  2.5.29.32.0                anyPolicy
  2.5.29.37                  extKeyUsage                (EnhancedKeyUsage)
  2.16.840.1.101.3.4.2.1     sha256                     (SHA-256)
+ 2.16.840.1.101.3.4.2.2     sha384                     (SHA-384)
+ 2.16.840.1.101.3.4.2.3     sha512                     (SHA-512)
+ 2.16.840.1.101.3.4.2.4     sha224                     (SHA-224)
+ 2.16.840.1.101.3.4.3.1     dsaWithSha224
+ 2.16.840.1.101.3.4.3.2     dsaWithSha256
+ 2.16.840.1.101.3.4.3.3     dsaWithSha384
+ 2.16.840.1.101.3.4.3.4     dsaWithSha512
  2.16.840.1.113730.1.1      netscapeCertType
  2.16.840.1.113730.1.2      netscapeBaseUrl
  2.16.840.1.113730.1.4      netscapeCaRevocationUrl
@@ -1897,9 +2367,11 @@ For a more detailed list of changes, see F<Commitlog> in the distribution.
 
 =head1 EXAMPLES
 
-In addition to the code snippets contained in this document, the F<t/> directory of the distribution
-contains a number of tests that exercise the API.  Although artificial, they are a good source of
-examples.
+In addition to the code snippets contained in this document, the F<examples/> directory of the distribution
+contains some sample utilitiles.
+
+Also, the F<t/> directory of the distribution contains a number of tests that exercise the
+API.  Although artificial, they are another good source of examples.
 
 Note that the type of data returned when extracting attributes and extensions is dependent
 on the specific OID used.
@@ -1912,7 +2384,7 @@ realistic certificate requests.
 
 =head1 ACKNOWLEDGEMENTS
 
-Martin Bartosch contributed the OIDs and tests for EC support.
+Martin Bartosch contributed preliminary EC support:  OIDs and tests.
 
 Timothe Litt made most of the changes for V1.4+
 

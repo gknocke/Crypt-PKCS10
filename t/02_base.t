@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 8;
+use Test::More 0.94 tests => 10;
 
 use File::Spec;
 
@@ -31,7 +31,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 22;
+    plan tests => 34;
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -42,7 +42,7 @@ subtest 'Basic functions' => sub {
     can_ok( 'Crypt::PKCS10', qw/setAPIversion name2oid oid2name registerOID new error csrRequest subject
                                 subjectAltName version pkAlgorithm subjectPublicKey signatureAlgorithm
                                 signature attributes certificateTemplate extensions extensionValue
-                                extensionPresent/ );
+                                extensionPresent subjectPublicKeyParams signatureParams checkSignature/ );
 
     # Dynamically-generated fixed accessor methods
 
@@ -76,7 +76,7 @@ trailing junk
 more junk
 -CERT-
 
-    $decoded = Crypt::PKCS10->new( $csr );
+    $decoded = Crypt::PKCS10->new( $csr, verifySignature => 0 );
 
     isnt( $decoded, undef, 'load PEM from variable' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -107,6 +107,13 @@ ZSijbwIDAQAB
 -----END PUBLIC KEY-----
 _KEYPEM_
 
+    is_deeply( $decoded->subjectPublicKeyParams,
+               {keytype => 'RSA',
+                keylen => 2048,
+                modulus => 'e0484c12ee29a56fb72d2829fdf286859b049a007d9030126bdd1e9d2319be38b4a40b00416dc54b000340ba580bb1c511e251e1a781ec2139c52d41e16226f607d1c4b3027a4a951eadc88e90b100de568f267902c694399d1392b27b7a7f31d84795e51d6833ee46132bfc049f9f962cc6f50e511f1a56227d47d7e3d60f8756d914a8fcf5440a67e571e4106fa6e6cb1cbe6e46b94abed62f11bde4b2cfb2cf330558654e7f27ccc82b28708517a3336a36a9308b5683cbf3dcca492cd563ae3a74d2d337424a644771cce8704dc47e67ecff2389587a57e3a2197813114a58cecd260071bf03c97aa4b2d0bf0e1f51310202bc7dee79ba9e884a6528a36f',
+                publicExponent => '10001',
+               }, 'subjectPublicKeyParams(RSA)' );
+
     is( $decoded->signature, 'dc8ba14eade00b952cdaacf0f48986407f01802b3d2c626c0cea42f977a39c3dbb5' .
 	'8db01c1897fb72a3d46c811269e446c4c208f63030694216f84ecca99163a60587e5bdf14075728e49e9b5e3' .
 	'992672021e694c1dcc2a5f5ba4fb2c02de1453702ffe93ec2d9dbb3486f0a1e9cb75ee24e6f6a23c4e57f8c6' .
@@ -114,6 +121,19 @@ _KEYPEM_
 	'2c4c828f7f7babf6dd42d77dc2431029b61330e0b55a6dcc728f573af196fdebecdb4b78c483636e4c537fe3' .
 	'6f69d86c5a7e024672a4504caa3a2be48e891ff4b83b4815ea6972f54367466decce6be94c67aed04145392684726',
 	'signature' );
+
+    is( unpack( "H*", $decoded->certificationRequest ),
+        '308201b602010030818831133011060a0992268993f22c64011916036f726731173015060a0992268993f22c' .
+        '64011916074f70656e53534c31153013060a0992268993f22c640119160575736572733123300b0603550403' .
+        '0c04746573743014060a0992268993f22c6401010c06313233343536311c301a06092a864886f70d01090116' .
+        '0d7465737440746573742e636f6d30820122300d06092a864886f70d01010105000382010f003082010a0282' .
+        '010100e0484c12ee29a56fb72d2829fdf286859b049a007d9030126bdd1e9d2319be38b4a40b00416dc54b00' .
+        '0340ba580bb1c511e251e1a781ec2139c52d41e16226f607d1c4b3027a4a951eadc88e90b100de568f267902' .
+        'c694399d1392b27b7a7f31d84795e51d6833ee46132bfc049f9f962cc6f50e511f1a56227d47d7e3d60f8756' .
+        'd914a8fcf5440a67e571e4106fa6e6cb1cbe6e46b94abed62f11bde4b2cfb2cf330558654e7f27ccc82b2870' .
+        '8517a3336a36a9308b5683cbf3dcca492cd563ae3a74d2d337424a644771cce8704dc47e67ecff2389587a57' .
+        'e3a2197813114a58cecd260071bf03c97aa4b2d0bf0e1f51310202bc7dee79ba9e884a6528a36f0203010001a000',
+        'certificationRequest' );
 
     is( scalar $decoded->subject, '/DC=org/DC=OpenSSL/DC=users/CN=test/UID=123456/emailAddress=test@test.com',
 	'subject()' );
@@ -178,22 +198,24 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
     #is( $decoded->signatureAlgorithm, 'SHA-256 with RSA encryption', 'correct signature algorithm' );
     is( $decoded->signatureAlgorithm, 'sha256WithRSAEncryption', 'signature algorithm' );
 
+    is( $decoded->signatureParams, undef, 'signature parameters' ); # RSA is NULL
+
+    is( $decoded->signature(2), undef, 'signature decoding' );
+
+    ok( $decoded->checkSignature, 'verify CSR signature' );
+
     my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 
-    if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
-    }
+    $decoded = Crypt::PKCS10->new( $file, readFile => 1 );
 
-    isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
+    isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
 
     my $der = $decoded->csrRequest;
 
     $file = File::Spec->catpath( @dirpath, 'csr1.cer' );
 
     if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
+	$decoded = Crypt::PKCS10->new( $csr, { acceptPEM => 0, }, escapeStrings => 0 );
     } else {
 	BAIL_OUT( "$file: $!\n" );;
     }
@@ -254,6 +276,52 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 		    ]
 		   ], "subject name component list" );
     };
+
+    $file = File::Spec->catpath( @dirpath, 'csr3.cer' );
+
+    my $bad;
+
+    if( open( my $csr, '<', $file ) ) {
+	$bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
+    } else {
+	BAIL_OUT( "$file: $!\n" );;
+    }
+
+    is( $bad, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    $bad = Crypt::PKCS10->new( $file, readFile =>1, acceptPEM => 0, escapeStrings => 0,
+                               verifySignature => 0 );
+    isnt( $bad, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    ok( !$bad->checkSignature, 'checkSignature returns false' );
+    ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
+
+    $file = File::Spec->catpath( @dirpath, 'csr8.pem' );
+
+    is( Crypt::PKCS10->new( $file, readFile => 1 ), undef, 'reject invalid base64' );
+
+    $bad = Crypt::PKCS10->new( $file, readFile => 1, ignoreNonBase64 => 1 );
+
+    isnt( $bad, undef, 'accept invalid base64' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    my $good = << 'GOOD';
+-----BEGIN CERTIFICATE REQUEST-----
+MIICuzCCAiQCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENOMIGfMA0GCSqG
+SIb3DQEBAQUAA4GNADCBiQKBgQC95h0aRkhNcqBrktxNXzOGgurp/vkUDFKNda/ruTMeOlPvXRGI
+S+kWm8tbahrEXp47bOu1usA7k2EWLQyqm5sdjwXtVyLos5Nw18hG2acHqbQSV8ZtYPR8xwpXzZYd
+FghwVo/Clu3jD1c5Cm0oofZSD/5c9JXmXgBWdySjlkxfRwIDAQABoIIBVjAaBgorBgEEAYI3DQID
+MQwWCjYuMS43NjAxLjIwMwYJKwYBBAGCNxUUMSYwJAIBCQwGU2NyZWFtDA5TY3JlYW1cdGltb3Ro
+ZQwHY2VydHJlcTBCBgorBgEEAYI3DQIBMTQwMh4mAEMAZQByAHQAaQBmAGkAYwBhAHQAZQBUAGUA
+bQBwAGwAYQB0AGUeCABVAHMAZQByMFcGCSqGSIb3DQEJDjFKMEgwFwYJKwYBBAGCNxQCBAoeCABV
+AHMAZQByMB0GA1UdDgQWBBTQ6yfAQdFGh07DGiOC14E3p9NQIDAOBgNVHQ8BAf8EBAMCB4AwZgYK
+KwYBBAGCNw0CAjFYMFYCAQIeTgBNAGkAYwByAG8AcwBvAGYAdAAgAFMAdAByAG8AbgBnACAAQwBy
+AHkAcAB0AG8AZwByAGEAcABoAGkAYwAgAFAAcgBvAHYAaQBkAGUAcgMBADANBgkqhkiG9w0BAQUF
+AAOBgQBaKlxVOri+lsnuN+mj12I3zFeWcFMigq87N8VG+R2bfiq0voNCYNbvteEdPQJm99EA9tEF
+1Lm3u9U8cmTZAvUNO9A1NlPX8e660ra6WQN2IKfDZp4XX5qisg3tus7WTfG7aLNx7HGTQt7c2f7A
+lhuoQJZsCpGrcxIFmsY3yB/bTw==
+-----END CERTIFICATE REQUEST-----
+GOOD
+    cmp_ok( $bad->csrRequest(1), 'eq', $good, 'correct invalid base64' );
 };
 
 subtest 'attribute functions' => sub {
@@ -449,6 +517,38 @@ subtest 'oid mapping' => sub {
 
 };
 
+subtest 'oid registration' => sub {
+    plan tests => 14;
+
+    ok( !Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0' ), 'OID is not registered' );
+    ok( Crypt::PKCS10->registerOID( '2.5.4.51' ), 'OID is registered' );
+    ok( Crypt::PKCS10->registerOID( '1.3.6.1.5.5.7.3.1' ), 'KeyUsage OID registered' );
+    ok( Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0', 'SampleOID' ), 'Register longform OID' );
+    is( Crypt::PKCS10->name2oid( 'SampleOID' ),  '1.3.6.1.4.1.25043.0', 'Find by name' );
+    is( Crypt::PKCS10->oid2name( '1.3.6.1.4.1.25043.0' ), 'SampleOID', 'Find by OID' );
+
+    ok( Crypt::PKCS10->registerOID( '1.2.840.113549.1.9.1', undef, 'e' ), 'Register /E for emailAddress' );
+    cmp_ok( scalar $decoded->subject, 'eq', '/C=AU/ST=Some-State/L=my city/O=Internet Widgits Pty Ltd/OU=Big org/OU=Smaller org/CN=My Name/E=none@no-email.com/DC=domainComponent', 'Short name for /emailAddress' );
+
+    eval{ Crypt::PKCS10->registerOID( '2.5.4.6',  undef, 'C' ) };
+    like( $@, qr/^C already registered/, 'Register duplicate shortname' );
+
+    eval{ Crypt::PKCS10->registerOID( 'A',  'name' ) };
+    like( $@, qr/^Invalid OID A/, 'Register invalid OID' );
+
+    eval{ Crypt::PKCS10->registerOID( '2.5.4.6',  'emailAddress', 'C' ) };
+    like( $@, qr/^2.5.4.6 already registered/, 'Register duplicate oid' );
+
+    eval{ Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0.1',  'emailAddress', 'C' ) };
+    like( $@, qr/^emailAddress already registered/, 'Register duplicate longname' );
+
+    eval{ Crypt::PKCS10->registerOID( '1.3.6.1.4.1.25043.0.1',  undef, 'Z' ) };
+    like( $@, qr/^1.3.6.1.4.1.25043.0.1 not registered/, 'Register shortname to unassigned OID' );
+
+    eval{ Crypt::PKCS10->registerOID( undef ) };
+    like( $@, qr/^Not enough arguments/, 'Minimum arguments' );
+};
+
 subtest 'Microsoft extensions' => sub {
     plan tests => 10;
 
@@ -507,7 +607,7 @@ subtest 'Microsoft extensions' => sub {
 };
 
 subtest 'stringify object' => sub {
-    plan tests => 4;
+    plan tests => 9;
 
     my $string = eval {
 	local $SIG{__WARN__} = sub { die $_[0] };
@@ -515,7 +615,7 @@ subtest 'stringify object' => sub {
 	return "$decoded";
     };
 
-    is( $@, '', 'no exception' );
+    cmp_ok( $@, 'eq', '', 'no exception' );
 
     isnt( $string, undef, 'returns something' );
 
@@ -523,9 +623,33 @@ subtest 'stringify object' => sub {
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
     like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );
+    like( $string, qr(^publicExponent\s*:[ ]10001)msx, 'string includes RSA public key' );
+    like( $string, qr(^-----BEGIN PUBLIC KEY-----$)ms, 'string includes public key PEM' );
+    like( $string, qr(^-----END PUBLIC KEY-----$)ms, 'string closes public key PEM' );
+    like( $string, qr(^-----BEGIN CERTIFICATE REQUEST-----$)ms, 'string includes CSR PEM' );
+    like( $string, qr(^-----END CERTIFICATE REQUEST-----$)ms, 'string closes CSR PEM' );
 };
 
-    # registerOID test needed
+subtest 'DSA requests' => sub {
+    plan tests => 4;
+
+    $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr5.pem' ),
+                                       readFile =>1, escapeStrings => 1 );
+
+    isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    is( $decoded->signatureAlgorithm, 'dsaWithSha256', 'DSA signature' );
+
+    is_deeply( $decoded->subjectPublicKeyParams,
+               {keytype => 'DSA',
+                keylen => 1024,
+                Q => 'b2a130635bfe19dbb3e49d8f5c4bae8266126019',
+                P => 'eb3ac7a7928f0a2ab9ef61288cfde11c13e932d3853803daeb2559e8a91abc9dc48577195a471026ef27741f24e60d93a42506f16cd8bd5aebdbf519b5baa3e6470484c3c3790ffc9b5617fbd38545cd07ff60da7846383c848f0ab447ac7ed5dcd35132d882e03269f3694330d41292d92e4472429ffa0e2514ec35ea96ee2d',
+                G => 'd2a82fb32f303aab7c554c91096d233cd3e87b2c9e202172a5206c7a228a39195504fcf6266748ea1a212cef6b9632bdc2012a766875c93334f7dacc24fef6ed11c185af502b236637bfdb3f8fab1de2b4bc26b45d5bb6171b8c169eca77977b5b4b9c9ca7df4052c7717bd885db9436d09829659e886de35173da53a16b78d7',
+               }, 'subjectPublicKeyParams(DSA)' );
+
+    is( $decoded->signature(2), undef, 'signature decoding' );
+};
 
     # API v0 tests needed
 

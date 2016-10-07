@@ -11,6 +11,8 @@ README
 README.md
 SIGNATURE
 dist.ini
+examples/dump_csr
+examples/verify_csr
 lib/Crypt/PKCS10.pm
 runbrew
 t/0-signature.t
@@ -23,6 +25,11 @@ t/author-pod-syntax.t
 t/csr1.cer
 t/csr1.pem
 t/csr2.pem
+t/csr3.cer
 t/csr4.pem
+t/csr5.pem
+t/csr6.pem
+t/csr7.pem
+t/csr8.pem
 weaver.ini
 xt/01_Kwalitee.t
