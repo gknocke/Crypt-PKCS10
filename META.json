@@ -73,7 +73,7 @@
          "version" : "1.701"
       }
    },
-   "release_status" : "stable",
+   "release_status" : "testing",
    "resources" : {
       "bugtracker" : {
          "mailto" : "bug-crypt-pkcs10@rt.cpan.org",
@@ -474,7 +474,7 @@
       "zilla" : {
          "class" : "Dist::Zilla::Dist::Builder",
          "config" : {
-            "is_trial" : "0"
+            "is_trial" : "1"
          },
          "version" : "5.043"
       }
