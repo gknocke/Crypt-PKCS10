@@ -31,7 +31,18 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 34;
+    plan tests => 37;
+
+ # Some useful information for automated testing reports
+    my $sslv = qx/openssl version/;
+    if( $? == 0 && defined $sslv && length $sslv) {
+        chomp $sslv;
+        $sslv = " / $sslv";
+    } else {
+        $sslv = '';
+    }
+    diag( sprintf( "Perl version %vd%s\n", $^V, $sslv ) );
+    ok( 1, 'configuration' );
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -39,7 +50,7 @@ subtest 'Basic functions' => sub {
 
     # Fixed public API methods
 
-    can_ok( 'Crypt::PKCS10', qw/setAPIversion name2oid oid2name registerOID new error csrRequest subject
+    can_ok( 'Crypt::PKCS10', qw/setAPIversion getAPIversion name2oid oid2name registerOID new error csrRequest subject
                                 subjectAltName version pkAlgorithm subjectPublicKey signatureAlgorithm
                                 signature attributes certificateTemplate extensions extensionValue
                                 extensionPresent subjectPublicKeyParams signatureParams checkSignature/ );
@@ -49,7 +60,11 @@ subtest 'Basic functions' => sub {
     can_ok( 'Crypt::PKCS10', qw/commonName organizationalUnitName organizationName
                           emailAddress stateOrProvinceName countryName domainComponent/ );
 
+    is( Crypt::PKCS10->getAPIversion, undef, 'getAPIversion unset' );
+
     ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
+
+    cmp_ok( Crypt::PKCS10->getAPIversion, '==', 1, 'getAPIversion 1' );
 
     my $csr = << '-CERT-';
 random junk
@@ -212,7 +227,7 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     my $der = $decoded->csrRequest;
 
-    $file = File::Spec->catpath( @dirpath, 'csr1.cer' );
+    $file = File::Spec->catpath( @dirpath, 'csr1.cer' ); # N.B. Padding added to test removal
 
     if( open( my $csr, '<', $file ) ) {
 	$decoded = Crypt::PKCS10->new( $csr, { acceptPEM => 0, }, escapeStrings => 0 );
@@ -622,12 +637,12 @@ subtest 'stringify object' => sub {
     cmp_ok( length $string, '>=', 2800, 'approximate result length' ) or
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
-    like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );
-    like( $string, qr(^publicExponent\s*:[ ]10001)msx, 'string includes RSA public key' );
-    like( $string, qr(^-----BEGIN PUBLIC KEY-----$)ms, 'string includes public key PEM' );
-    like( $string, qr(^-----END PUBLIC KEY-----$)ms, 'string closes public key PEM' );
-    like( $string, qr(^-----BEGIN CERTIFICATE REQUEST-----$)ms, 'string includes CSR PEM' );
-    like( $string, qr(^-----END CERTIFICATE REQUEST-----$)ms, 'string closes CSR PEM' );
+    like( $string, qr'^Subject\s*: /O=TestOrg/CN=TestCN\n'ms, 'string includes subject' );
+    like( $string, qr'^publicExponent\s*: 10001'ms, 'string includes RSA public key' );
+    like( $string, qr'^-----BEGIN PUBLIC KEY-----$'ms, 'string includes public key PEM' );
+    like( $string, qr'^-----END PUBLIC KEY-----$'ms, 'string closes public key PEM' );
+    like( $string, qr'^-----BEGIN CERTIFICATE REQUEST-----$'ms, 'string includes CSR PEM' );
+    like( $string, qr'^-----END CERTIFICATE REQUEST-----$'ms, 'string closes CSR PEM' );
 };
 
 subtest 'DSA requests' => sub {

@@ -23,17 +23,18 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.7
+    version: 1.701
 requires:
   Carp: 0
   Convert::ASN1: 0.27
-  Crypt::OpenSSL::DSA: 0
-  Crypt::OpenSSL::RSA: 0
+  Crypt::OpenSSL::DSA: 0.15
+  Crypt::OpenSSL::RSA: 0.28
   Crypt::PK::ECC: 0
-  Digest::MD2: 0
-  Digest::MD4: 0
-  Digest::MD5: 0
-  Digest::SHA: 0
+  CryptX: 0.040
+  Digest::MD2: 2.03
+  Digest::MD4: 1.5
+  Digest::MD5: 2.51
+  Digest::SHA: 5.95
   Encode: 0
   MIME::Base64: 0
   Scalar::Util: 0
@@ -45,7 +46,7 @@ requires:
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
   repository: https://github.com/gknocke/Crypt-PKCS10.git
-version: 1.7
+version: 1.701
 x_Dist_Zilla:
   perl:
     version: 5.008008

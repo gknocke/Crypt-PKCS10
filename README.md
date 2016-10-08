@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.7
+version 1.701
 
 # SYNOPSIS
 
@@ -120,6 +120,12 @@ To ease migration, both old and new names are accepted by the API.
 
 Every program should call `setAPIversion(1)`.
 
+## class method getAPIversion
+
+Returns the current API version.
+
+Returns `undef` if setAPIversion has never been called.
+
 ## class method new( $csr, %options )
 
 Constructor, creates a new object containing the parsed PKCS #10 certificate request.
@@ -201,6 +207,9 @@ is not part of the API and may change.  It should not be parsed by automated too
 
 Exception: The public key and extracted request are PEM blocks, which other tools
 can extract.
+
+If another object inherits from `Crypt::PKCS10`, it can extend the representation
+by overloading or calling `as_string`.
 
 ## class method error
 
@@ -707,6 +716,22 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Optionally allow invalid base64 character in PEM data.
 
      - Allow new() from filename and options from hashref.
+
+    
+
+    1.7_01
+
+     - Address CPANTS failures due to bugs in old versions of Crypt::PK::ECC
+
+     - Add explicit version dependency for CryptX, the parent distribution.
+
+     - For insurance, add explicit version requirements for the other modules we depend on.
+
+     - Add getAPIversion
+
+     - Make stringify use an overloadable method so it can be extended if subclassed.
+
+     - Correctly parse DER for expected length when removing padding.
 
     
 
