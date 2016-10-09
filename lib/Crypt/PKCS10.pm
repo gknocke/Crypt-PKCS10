@@ -15,14 +15,14 @@ use strict;
 use warnings;
 use Carp;
 
-use overload( q("") => \&_stringify );
+use overload( q("") => 'as_string' );
 
 use Convert::ASN1( qw/:tag :const/ );
 use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
 
-our $VERSION = 1.7;
+our $VERSION = 1.8;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 my $error;
@@ -302,6 +302,14 @@ sub setAPIversion {
     return 1;
 }
 
+sub getAPIversion {
+    my( $class ) = @_;
+
+    croak( "Class not specified for getAPIversion()\n" ) unless( defined $class );
+
+    return $apiVersion;
+}
+
 sub name2oid {
     my $class = shift;
     my( $oid ) = @_;
@@ -427,7 +435,7 @@ sub _new {
 
     my $self = {};
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|readFile|verifySignature|ignoreNonBase64)$/ } keys %options);
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|readFile|verifySignature|ignoreNonBase64|warnings)$/ } keys %options);
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -468,13 +476,29 @@ sub _new {
         $der = decode_base64( $der );
     }
 
-    # some Requests may contain information outside of the regular ASN.1 structure.
-    # These parts need to be stripped off
+    # some requests may contain information outside of the regular ASN.1 structure.
+    # This padding must be removed.
 
     $der = eval { # Catch out of range errors caused by bad DER & report as format errors.
-	use bytes;
-	return substr( $der, 0, unpack("n*", substr($der, 2, 2)) + 4 );
-    }; croak( "Invalid format for request\n" ) if( $@ );
+        # SEQUENCE <len> -- CertificationRequest
+
+        my( $tlen, undef, $tag ) = asn_decode_tag2( $der );
+        die( "SEQUENCE not present\n" ) unless( $tlen && $tag == ASN_SEQUENCE );
+
+        my( $llen, $len ) = asn_decode_length( substr( $der, $tlen ) );
+        die( "Invalid SEQUENCE length\n" ) unless( $llen && $len );
+
+        $len += $tlen + $llen;
+        $tlen = length $der;
+        die( "DER too short to contain request\n" ) if( $tlen < $len );
+
+        if( $tlen != $len && $self->{_warnings} ) { # Debugging
+            local $SIG{__WARN__};
+            carp( sprintf( "DER length of %u contains %u bytes of padding",
+                           $tlen, $tlen - $len ) );
+        }
+        return substr( $der, 0, $len );
+    }; croak( "Invalid format for request: $@\n" ) if( $@ );
 
     $self->{_der} = $der;
 
@@ -691,9 +715,9 @@ ASN1
         $top->{certificationRequestInfo}{attributes} );
 
     $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
-      encode_base64( $self->_init('SubjectPublicKeyInfo')->
-		     encode( $top->{certificationRequestInfo}{subjectPKInfo} ) ) .
-		       "-----END PUBLIC KEY-----\n";
+      _encode_PEM( $self->_init('SubjectPublicKeyInfo')->
+                   encode( $top->{certificationRequestInfo}{subjectPKInfo} ) ) .
+                     "-----END PUBLIC KEY-----\n";
 
     $self->{certificationRequestInfo}{subjectPKInfo} = $self->_convert_pkinfo(
         $top->{certificationRequestInfo}{subjectPKInfo} );
@@ -1070,7 +1094,7 @@ sub csrRequest {
     my $format = shift;
 
     return( "-----BEGIN CERTIFICATE REQUEST-----\n" .
-	    encode_base64( $self->{_der} ) .
+	    _encode_PEM( $self->{_der} ) .
 	    "-----END CERTIFICATE REQUEST-----\n" ) if( $format );
 
     return $self->{_der};
@@ -1495,17 +1519,10 @@ sub checkSignature {
 
         if( $keyp->{keytype} eq 'DSA' ) {
             require Crypt::OpenSSL::DSA;
-            eval "require $hashmod" or croak( $@ ); ## no critic
-
-            if( 0 ) { # For DistZilla
-                require Digest::SHA;
-                require Digest::MD5;
-                require Digest::MD4;
-                require Digest::MD2;
-            }
+            eval "require $hashmod" or croak( $@ ); ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
             my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $key );
-            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic
+            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic (BuiltinFunctions::ProhibitStringyEval)
         }
 
         if( $keyp->{keytype} eq 'ECC' ) {
@@ -1541,7 +1558,16 @@ sub _wrap {
     return $out;
 }
 
-sub _stringify {
+sub _encode_PEM {
+    my $text = encode_base64( $_[0] );
+    return $text if( length $text <= 65 );
+    $text    =~ tr/\n//d;
+    my $out  = '';
+    $out    .= substr( $text, 0, 64, '' ) . "\n" while( length $text );
+    return   $out;
+}
+
+sub as_string {
     my $self = shift;
 
     local $self->{_escapeStrings} = 0;
@@ -1777,6 +1803,12 @@ Every program should call C<setAPIversion(1)>.
 
 =cut
 
+=head2 class method getAPIversion
+
+Returns the current API version.
+
+Returns C<undef> if setAPIversion has never been called.
+
 =head2 class method new( $csr, %options )
 
 Constructor, creates a new object containing the parsed PKCS #10 certificate request.
@@ -1862,6 +1894,9 @@ is not part of the API and may change.  It should not be parsed by automated too
 
 Exception: The public key and extracted request are PEM blocks, which other tools
 can extract.
+
+If another object inherits from C<Crypt::PKCS10>, it can extend the representation
+by overloading or calling C<as_string>.
 
 =head2 class method error
 

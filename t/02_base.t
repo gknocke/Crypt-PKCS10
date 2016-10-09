@@ -31,7 +31,18 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 my $decoded;
 
 subtest 'Basic functions' => sub {
-    plan tests => 34;
+    plan tests => 37;
+
+ # Some useful information for automated testing reports
+    my $sslv = qx/openssl version/;
+    if( $? == 0 && defined $sslv && length $sslv) {
+        chomp $sslv;
+        $sslv = " / $sslv";
+    } else {
+        $sslv = '';
+    }
+    diag( sprintf( "Perl version %vd%s\n", $^V, $sslv ) );
+    ok( 1, 'configuration' );
 
     BEGIN {
 	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
@@ -39,7 +50,7 @@ subtest 'Basic functions' => sub {
 
     # Fixed public API methods
 
-    can_ok( 'Crypt::PKCS10', qw/setAPIversion name2oid oid2name registerOID new error csrRequest subject
+    can_ok( 'Crypt::PKCS10', qw/setAPIversion getAPIversion name2oid oid2name registerOID new error csrRequest subject
                                 subjectAltName version pkAlgorithm subjectPublicKey signatureAlgorithm
                                 signature attributes certificateTemplate extensions extensionValue
                                 extensionPresent subjectPublicKeyParams signatureParams checkSignature/ );
@@ -49,7 +60,11 @@ subtest 'Basic functions' => sub {
     can_ok( 'Crypt::PKCS10', qw/commonName organizationalUnitName organizationName
                           emailAddress stateOrProvinceName countryName domainComponent/ );
 
+    is( Crypt::PKCS10->getAPIversion, undef, 'getAPIversion unset' );
+
     ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
+
+    cmp_ok( Crypt::PKCS10->getAPIversion, '==', 1, 'getAPIversion 1' );
 
     my $csr = << '-CERT-';
 random junk
@@ -98,12 +113,13 @@ more junk
 
     is( $decoded->subjectPublicKey(1), << '_KEYPEM_', 'PEM subjectPublicKey' );
 -----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EhMEu4ppW+3LSgp/fKGhZsEmgB9kDAS
-a90enSMZvji0pAsAQW3FSwADQLpYC7HFEeJR4aeB7CE5xS1B4WIm9gfRxLMCekqVHq3IjpCxAN5W
-jyZ5AsaUOZ0TkrJ7en8x2EeV5R1oM+5GEyv8BJ+flizG9Q5RHxpWIn1H1+PWD4dW2RSo/PVECmfl
-ceQQb6bmyxy+bka5Sr7WLxG95LLPss8zBVhlTn8nzMgrKHCFF6MzajapMItWg8vz3MpJLNVjrjp0
-0tM3QkpkR3HM6HBNxH5n7P8jiVh6V+OiGXgTEUpYzs0mAHG/A8l6pLLQvw4fUTECArx97nm6nohK
-ZSijbwIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EhMEu4ppW+3LSgp/fKG
+hZsEmgB9kDASa90enSMZvji0pAsAQW3FSwADQLpYC7HFEeJR4aeB7CE5xS1B4WIm
+9gfRxLMCekqVHq3IjpCxAN5WjyZ5AsaUOZ0TkrJ7en8x2EeV5R1oM+5GEyv8BJ+f
+lizG9Q5RHxpWIn1H1+PWD4dW2RSo/PVECmflceQQb6bmyxy+bka5Sr7WLxG95LLP
+ss8zBVhlTn8nzMgrKHCFF6MzajapMItWg8vz3MpJLNVjrjp00tM3QkpkR3HM6HBN
+xH5n7P8jiVh6V+OiGXgTEUpYzs0mAHG/A8l6pLLQvw4fUTECArx97nm6nohKZSij
+bwIDAQAB
 -----END PUBLIC KEY-----
 _KEYPEM_
 
@@ -140,24 +156,26 @@ _KEYPEM_
 
     is( scalar $decoded->userID, '123456', 'userID accessor autoloaded' );
 
-    # Note that this is the input, but re-wrapped because the encoder has
-    # a different line length from OpenSSL.
+    # Note that this is the input, but with junk removed.
 
     my $extcsr = << '~~~';
 -----BEGIN CERTIFICATE REQUEST-----
-MIICzjCCAbYCAQAwgYgxEzARBgoJkiaJk/IsZAEZFgNvcmcxFzAVBgoJkiaJk/IsZAEZFgdPcGVu
-U1NMMRUwEwYKCZImiZPyLGQBGRYFdXNlcnMxIzALBgNVBAMMBHRlc3QwFAYKCZImiZPyLGQBAQwG
-MTIzNDU2MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRlc3QuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOC
-AQ8AMIIBCgKCAQEA4EhMEu4ppW+3LSgp/fKGhZsEmgB9kDASa90enSMZvji0pAsAQW3FSwADQLpY
-C7HFEeJR4aeB7CE5xS1B4WIm9gfRxLMCekqVHq3IjpCxAN5WjyZ5AsaUOZ0TkrJ7en8x2EeV5R1o
-M+5GEyv8BJ+flizG9Q5RHxpWIn1H1+PWD4dW2RSo/PVECmflceQQb6bmyxy+bka5Sr7WLxG95LLP
-ss8zBVhlTn8nzMgrKHCFF6MzajapMItWg8vz3MpJLNVjrjp00tM3QkpkR3HM6HBNxH5n7P8jiVh6
-V+OiGXgTEUpYzs0mAHG/A8l6pLLQvw4fUTECArx97nm6nohKZSijbwIDAQABoAAwDQYJKoZIhvcN
-AQELBQADggEBANyLoU6t4AuVLNqs8PSJhkB/AYArPSxibAzqQvl3o5w9u1jbAcGJf7cqPUbIESae
-RGxMII9jAwaUIW+E7MqZFjpgWH5b3xQHVyjknpteOZJnICHmlMHcwqX1uk+ywC3hRTcC/+k+wtnb
-s0hvCh6ct17iTm9qI8Tlf4xhHFrsXeCOCmtN3/HSjy3c9dYVB/je5JDesYWiDy1Ssp5D/Fg9OwC3
-7p57VNLEyCj397q/bdQtd9wkMQKbYTMOC1Wm3Mco9XOvGW/evs20t4xINjbkxTf+NvadhsWn4CRn
-KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
+MIICzjCCAbYCAQAwgYgxEzARBgoJkiaJk/IsZAEZFgNvcmcxFzAVBgoJkiaJk/Is
+ZAEZFgdPcGVuU1NMMRUwEwYKCZImiZPyLGQBGRYFdXNlcnMxIzALBgNVBAMMBHRl
+c3QwFAYKCZImiZPyLGQBAQwGMTIzNDU2MRwwGgYJKoZIhvcNAQkBFg10ZXN0QHRl
+c3QuY29tMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4EhMEu4ppW+3
+LSgp/fKGhZsEmgB9kDASa90enSMZvji0pAsAQW3FSwADQLpYC7HFEeJR4aeB7CE5
+xS1B4WIm9gfRxLMCekqVHq3IjpCxAN5WjyZ5AsaUOZ0TkrJ7en8x2EeV5R1oM+5G
+Eyv8BJ+flizG9Q5RHxpWIn1H1+PWD4dW2RSo/PVECmflceQQb6bmyxy+bka5Sr7W
+LxG95LLPss8zBVhlTn8nzMgrKHCFF6MzajapMItWg8vz3MpJLNVjrjp00tM3Qkpk
+R3HM6HBNxH5n7P8jiVh6V+OiGXgTEUpYzs0mAHG/A8l6pLLQvw4fUTECArx97nm6
+nohKZSijbwIDAQABoAAwDQYJKoZIhvcNAQELBQADggEBANyLoU6t4AuVLNqs8PSJ
+hkB/AYArPSxibAzqQvl3o5w9u1jbAcGJf7cqPUbIESaeRGxMII9jAwaUIW+E7MqZ
+FjpgWH5b3xQHVyjknpteOZJnICHmlMHcwqX1uk+ywC3hRTcC/+k+wtnbs0hvCh6c
+t17iTm9qI8Tlf4xhHFrsXeCOCmtN3/HSjy3c9dYVB/je5JDesYWiDy1Ssp5D/Fg9
+OwC37p57VNLEyCj397q/bdQtd9wkMQKbYTMOC1Wm3Mco9XOvGW/evs20t4xINjbk
+xTf+NvadhsWn4CRnKkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5Jo
+RyY=
 -----END CERTIFICATE REQUEST-----
 ~~~
 
@@ -212,7 +230,7 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     my $der = $decoded->csrRequest;
 
-    $file = File::Spec->catpath( @dirpath, 'csr1.cer' );
+    $file = File::Spec->catpath( @dirpath, 'csr1.cer' ); # N.B. Padding added to test removal
 
     if( open( my $csr, '<', $file ) ) {
 	$decoded = Crypt::PKCS10->new( $csr, { acceptPEM => 0, }, escapeStrings => 0 );
@@ -306,19 +324,21 @@ KkUEyqOivkjokf9Lg7SBXqaXL1Q2dGbezOa+lMZ67QQUU5JoRyY=
 
     my $good = << 'GOOD';
 -----BEGIN CERTIFICATE REQUEST-----
-MIICuzCCAiQCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENOMIGfMA0GCSqG
-SIb3DQEBAQUAA4GNADCBiQKBgQC95h0aRkhNcqBrktxNXzOGgurp/vkUDFKNda/ruTMeOlPvXRGI
-S+kWm8tbahrEXp47bOu1usA7k2EWLQyqm5sdjwXtVyLos5Nw18hG2acHqbQSV8ZtYPR8xwpXzZYd
-FghwVo/Clu3jD1c5Cm0oofZSD/5c9JXmXgBWdySjlkxfRwIDAQABoIIBVjAaBgorBgEEAYI3DQID
-MQwWCjYuMS43NjAxLjIwMwYJKwYBBAGCNxUUMSYwJAIBCQwGU2NyZWFtDA5TY3JlYW1cdGltb3Ro
-ZQwHY2VydHJlcTBCBgorBgEEAYI3DQIBMTQwMh4mAEMAZQByAHQAaQBmAGkAYwBhAHQAZQBUAGUA
-bQBwAGwAYQB0AGUeCABVAHMAZQByMFcGCSqGSIb3DQEJDjFKMEgwFwYJKwYBBAGCNxQCBAoeCABV
-AHMAZQByMB0GA1UdDgQWBBTQ6yfAQdFGh07DGiOC14E3p9NQIDAOBgNVHQ8BAf8EBAMCB4AwZgYK
-KwYBBAGCNw0CAjFYMFYCAQIeTgBNAGkAYwByAG8AcwBvAGYAdAAgAFMAdAByAG8AbgBnACAAQwBy
-AHkAcAB0AG8AZwByAGEAcABoAGkAYwAgAFAAcgBvAHYAaQBkAGUAcgMBADANBgkqhkiG9w0BAQUF
-AAOBgQBaKlxVOri+lsnuN+mj12I3zFeWcFMigq87N8VG+R2bfiq0voNCYNbvteEdPQJm99EA9tEF
-1Lm3u9U8cmTZAvUNO9A1NlPX8e660ra6WQN2IKfDZp4XX5qisg3tus7WTfG7aLNx7HGTQt7c2f7A
-lhuoQJZsCpGrcxIFmsY3yB/bTw==
+MIICuzCCAiQCAQAwIzEQMA4GA1UECgwHVGVzdE9yZzEPMA0GA1UEAwwGVGVzdENO
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC95h0aRkhNcqBrktxNXzOGgurp
+/vkUDFKNda/ruTMeOlPvXRGIS+kWm8tbahrEXp47bOu1usA7k2EWLQyqm5sdjwXt
+VyLos5Nw18hG2acHqbQSV8ZtYPR8xwpXzZYdFghwVo/Clu3jD1c5Cm0oofZSD/5c
+9JXmXgBWdySjlkxfRwIDAQABoIIBVjAaBgorBgEEAYI3DQIDMQwWCjYuMS43NjAx
+LjIwMwYJKwYBBAGCNxUUMSYwJAIBCQwGU2NyZWFtDA5TY3JlYW1cdGltb3RoZQwH
+Y2VydHJlcTBCBgorBgEEAYI3DQIBMTQwMh4mAEMAZQByAHQAaQBmAGkAYwBhAHQA
+ZQBUAGUAbQBwAGwAYQB0AGUeCABVAHMAZQByMFcGCSqGSIb3DQEJDjFKMEgwFwYJ
+KwYBBAGCNxQCBAoeCABVAHMAZQByMB0GA1UdDgQWBBTQ6yfAQdFGh07DGiOC14E3
+p9NQIDAOBgNVHQ8BAf8EBAMCB4AwZgYKKwYBBAGCNw0CAjFYMFYCAQIeTgBNAGkA
+YwByAG8AcwBvAGYAdAAgAFMAdAByAG8AbgBnACAAQwByAHkAcAB0AG8AZwByAGEA
+cABoAGkAYwAgAFAAcgBvAHYAaQBkAGUAcgMBADANBgkqhkiG9w0BAQUFAAOBgQBa
+KlxVOri+lsnuN+mj12I3zFeWcFMigq87N8VG+R2bfiq0voNCYNbvteEdPQJm99EA
+9tEF1Lm3u9U8cmTZAvUNO9A1NlPX8e660ra6WQN2IKfDZp4XX5qisg3tus7WTfG7
+aLNx7HGTQt7c2f7AlhuoQJZsCpGrcxIFmsY3yB/bTw==
 -----END CERTIFICATE REQUEST-----
 GOOD
     cmp_ok( $bad->csrRequest(1), 'eq', $good, 'correct invalid base64' );
@@ -622,12 +642,15 @@ subtest 'stringify object' => sub {
     cmp_ok( length $string, '>=', 2800, 'approximate result length' ) or
       diag( sprintf( "actual length %u, value:\n%s\n", length $string, $string ) );
 
-    like( $string, qr{^Subject\s*:[ ]/O=TestOrg/CN=TestCN\n}msx, 'string includes subject' );
-    like( $string, qr(^publicExponent\s*:[ ]10001)msx, 'string includes RSA public key' );
-    like( $string, qr(^-----BEGIN PUBLIC KEY-----$)ms, 'string includes public key PEM' );
-    like( $string, qr(^-----END PUBLIC KEY-----$)ms, 'string closes public key PEM' );
-    like( $string, qr(^-----BEGIN CERTIFICATE REQUEST-----$)ms, 'string includes CSR PEM' );
-    like( $string, qr(^-----END CERTIFICATE REQUEST-----$)ms, 'string closes CSR PEM' );
+    # Perl 5.8.8 bug 39185: sometimes modifiers outside a qr don't work, but do when cloistered.
+    # Note that some versions of 5.8.8 have this fixed, some don't.
+
+    like( $string, qr'(?ms:^Subject\s*: /O=TestOrg/CN=TestCN\n)', 'string includes subject' );
+    like( $string, qr'(?ms:^publicExponent\s*: 10001)', 'string includes RSA public key' );
+    like( $string, qr'(?ms:^-----BEGIN PUBLIC KEY-----$)', 'string includes public key PEM' );
+    like( $string, qr'(?ms:^-----END PUBLIC KEY-----$)', 'string closes public key PEM' );
+    like( $string, qr'(?ms:^-----BEGIN CERTIFICATE REQUEST-----$)', 'string includes CSR PEM' );
+    like( $string, qr'(?ms:^-----END CERTIFICATE REQUEST-----$)', 'string closes CSR PEM' );
 };
 
 subtest 'DSA requests' => sub {

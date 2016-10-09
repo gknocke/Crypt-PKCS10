@@ -107,4 +107,18 @@ Revision history for perl module Crypt::PKCS10
  - Optionally allow invalid base64 character in PEM data.
  - Allow new() from filename and options from hashref.
 
+1.7_01
+ - Address CPANTS failures due to bugs in old versions of Crypt::PK::ECC
+ - Add explicit version dependency for CryptX, the parent distribution.
+ - For insurance, add explicit version requirements for the other modules we depend on.
+ - Add getAPIversion
+ - Make stringify use an overloadable method so it can be extended if subclassed.
+ - Correctly parse DER for expected length when removing padding.
+
+1.8
+ - When returning PEM, ensure max line width of 64 to satisfy RFC 7468, not 76 of MIME.
+ - Fix test failures on some editions of 5.8.8 due to Perl bug 39185.  (Tripped in test, not module.)
+
+
+
 __END__
