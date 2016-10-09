@@ -47,8 +47,8 @@ is( $decoded->subjectPublicKey, '048d0507a7ebf58a17910fe2b15b0c451e93bc948a4bafb
 
 is( $decoded->subjectPublicKey(1), << '_KEYPEM_', 'PEM subjectPublicKey' );
 -----BEGIN PUBLIC KEY-----
-MFowFAYHKoZIzj0CAQYJKyQDAwIIAQEHA0IABI0FB6fr9YoXkQ/isVsMRR6TvJSKS6+3vxIE1gQ+
-feE5QjC++rnFEVzTzR4FmlRXiLseCDDuBjAMTz6NhxKPPdw=
+MFowFAYHKoZIzj0CAQYJKyQDAwIIAQEHA0IABI0FB6fr9YoXkQ/isVsMRR6TvJSK
+S6+3vxIE1gQ+feE5QjC++rnFEVzTzR4FmlRXiLseCDDuBjAMTz6NhxKPPdw=
 -----END PUBLIC KEY-----
 _KEYPEM_
 

@@ -22,7 +22,7 @@ use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
 
-our $VERSION = 1.7_01;
+our $VERSION = 1.8;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 my $error;
@@ -715,9 +715,9 @@ ASN1
         $top->{certificationRequestInfo}{attributes} );
 
     $self->{_pubkey} = "-----BEGIN PUBLIC KEY-----\n" .
-      encode_base64( $self->_init('SubjectPublicKeyInfo')->
-		     encode( $top->{certificationRequestInfo}{subjectPKInfo} ) ) .
-		       "-----END PUBLIC KEY-----\n";
+      _encode_PEM( $self->_init('SubjectPublicKeyInfo')->
+                   encode( $top->{certificationRequestInfo}{subjectPKInfo} ) ) .
+                     "-----END PUBLIC KEY-----\n";
 
     $self->{certificationRequestInfo}{subjectPKInfo} = $self->_convert_pkinfo(
         $top->{certificationRequestInfo}{subjectPKInfo} );
@@ -1094,7 +1094,7 @@ sub csrRequest {
     my $format = shift;
 
     return( "-----BEGIN CERTIFICATE REQUEST-----\n" .
-	    encode_base64( $self->{_der} ) .
+	    _encode_PEM( $self->{_der} ) .
 	    "-----END CERTIFICATE REQUEST-----\n" ) if( $format );
 
     return $self->{_der};
@@ -1519,17 +1519,10 @@ sub checkSignature {
 
         if( $keyp->{keytype} eq 'DSA' ) {
             require Crypt::OpenSSL::DSA;
-            eval "require $hashmod" or croak( $@ ); ## no critic
-
-            if( 0 ) { # For DistZilla
-                require Digest::SHA;
-                require Digest::MD5;
-                require Digest::MD4;
-                require Digest::MD2;
-            }
+            eval "require $hashmod" or croak( $@ ); ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
             my $dsa = Crypt::OpenSSL::DSA->read_pub_key_str( $key );
-            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic
+            return $dsa->verify( eval "$hashfcn( \$self->certificationRequest )", $sig ); ## no critic (BuiltinFunctions::ProhibitStringyEval)
         }
 
         if( $keyp->{keytype} eq 'ECC' ) {
@@ -1563,6 +1556,15 @@ sub _wrap {
 	$out .= "\n" . (' ' x $to) . substr( $text, 0, $wid, '' );
     }
     return $out;
+}
+
+sub _encode_PEM {
+    my $text = encode_base64( $_[0] );
+    return $text if( length $text <= 65 );
+    $text    =~ tr/\n//d;
+    my $out  = '';
+    $out    .= substr( $text, 0, 64, '' ) . "\n" while( length $text );
+    return   $out;
 }
 
 sub as_string {

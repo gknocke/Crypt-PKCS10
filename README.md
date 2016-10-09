@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.701
+version 1.8
 
 # SYNOPSIS
 
@@ -732,6 +732,18 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Make stringify use an overloadable method so it can be extended if subclassed.
 
      - Correctly parse DER for expected length when removing padding.
+
+    
+
+    1.8
+
+     - When returning PEM, ensure max line width of 64 to satisfy RFC 7468, not 76 of MIME.
+
+     - Fix test failures on some editions of 5.8.8 due to Perl bug 39185.  (Tripped in test, not module.)
+
+    
+
+    
 
     
 
