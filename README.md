@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.8
+version 1.8001
 
 # SYNOPSIS
 
@@ -743,7 +743,17 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
 
     
 
-    
+    1.8001
+
+     - Makefile.pl: Diagnose old OpenSSL versions that fail signature verification and discard automated tests in that case.
+
+     - Print full OpenSSL configuration during automated testing.
+
+     - Require CryptX with version fix.
+
+     - Silence test warning if openssl command is missing.
+
+     - No changes to functional code.
 
     
 
