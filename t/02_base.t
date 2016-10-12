@@ -35,13 +35,21 @@ subtest 'Basic functions' => sub {
 
  # Some useful information for automated testing reports
     my $sslv;
-    {
+    eval {
         local $SIG{__WARN__} = sub {};
 
-        $sslv = ( $ENV{AUTOMATED_TESTING}?
-                  qx/openssl version -a/ :
-                  qx/openssl version/ );
-    }
+        if( $ENV{AUTOMATED_TESTING} ) {
+            $sslv = qx/openssl version -a/;
+            return unless( defined $sslv );
+
+            require Text::Wrap;
+
+            $sslv =~ s/^((?:compiler|options):[ ]+)([^\n]*)\n/
+                     $1 . Text::Wrap::wrap( "", ' ' x 20, $2 ) . "\n"/gmsexi;
+        } else {
+            $sslv = qx/openssl version/;
+        }
+    };
     if( $? == 0 && defined $sslv && length $sslv) {
         chomp $sslv;
         $sslv = $ENV{AUTOMATED_TESTING}? "\n$sslv": " / $sslv";

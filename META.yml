@@ -9,6 +9,7 @@ build_requires:
   Module::Signature: 0
   Socket: 0
   Test::More: 0.94
+  Text::Wrap: 0
   perl: 5.008008
 configure_requires:
   Crypt::OpenSSL::DSA: 0.15
@@ -27,7 +28,7 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.8001
+    version: 1.800101
 requires:
   Carp: 0
   Convert::ASN1: 0.27
@@ -49,7 +50,7 @@ requires:
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
   repository: https://github.com/gknocke/Crypt-PKCS10.git
-version: 1.8001
+version: 1.800101
 x_Dist_Zilla:
   perl:
     version: 5.008008

@@ -207,9 +207,10 @@ my %WriteMakefileArgs = (
     "File::Spec" => 0,
     "Module::Signature" => 0,
     "Socket" => 0,
-    "Test::More" => "0.94"
+    "Test::More" => "0.94",
+    "Text::Wrap" => 0
   },
-  "VERSION" => "1.8001",
+  "VERSION" => "1.800101",
   "test" => {
     "TESTS" => "t/*.t"
   }
@@ -233,6 +234,7 @@ my %FallbackPrereqs = (
   "Scalar::Util" => 0,
   "Socket" => 0,
   "Test::More" => "0.94",
+  "Text::Wrap" => 0,
   "bytes" => 0,
   "overload" => 0,
   "strict" => 0,

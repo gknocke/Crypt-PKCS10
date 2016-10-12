@@ -126,4 +126,8 @@ Revision history for perl module Crypt::PKCS10
  - Silence test warning if openssl command is missing.
  - No changes to functional code.
 
+1.8001_01
+ - Cosmetic: wrap long form OpenSSL config in test
+
+
 __END__

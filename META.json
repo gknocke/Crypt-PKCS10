@@ -66,6 +66,7 @@
             "Module::Signature" : "0",
             "Socket" : "0",
             "Test::More" : "0.94",
+            "Text::Wrap" : "0",
             "perl" : "5.008008"
          }
       }
@@ -73,7 +74,7 @@
    "provides" : {
       "Crypt::PKCS10" : {
          "file" : "lib/Crypt/PKCS10.pm",
-         "version" : "1.8001"
+         "version" : "1.800101"
       }
    },
    "release_status" : "stable",
@@ -88,7 +89,7 @@
          "web" : "https://github.com/gknocke/Crypt-PKCS10"
       }
    },
-   "version" : "1.8001",
+   "version" : "1.800101",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"

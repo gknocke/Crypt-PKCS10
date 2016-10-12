@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.8001
+version 1.800101
 
 # SYNOPSIS
 
@@ -754,6 +754,14 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Silence test warning if openssl command is missing.
 
      - No changes to functional code.
+
+    
+
+    1.8001_01
+
+     - Cosmetic: wrap long form OpenSSL config in test
+
+    
 
     
 
