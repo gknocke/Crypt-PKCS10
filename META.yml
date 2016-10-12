@@ -11,7 +11,11 @@ build_requires:
   Test::More: 0.94
   perl: 5.008008
 configure_requires:
+  Crypt::OpenSSL::DSA: 0.15
+  Crypt::OpenSSL::RSA: 0.28
+  Crypt::PK::ECC: 0.041
   ExtUtils::MakeMaker: 0
+  Text::Wrap: 2005.082401
   perl: 5.008008
 dynamic_config: 0
 generated_by: 'Dist::Zilla version 5.043, CPAN::Meta::Converter version 2.143240'
@@ -23,14 +27,13 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.8
+    version: 1.8001
 requires:
   Carp: 0
   Convert::ASN1: 0.27
   Crypt::OpenSSL::DSA: 0.15
   Crypt::OpenSSL::RSA: 0.28
-  Crypt::PK::ECC: 0
-  CryptX: 0.040
+  Crypt::PK::ECC: 0.041
   Digest::MD2: 2.03
   Digest::MD4: 1.5
   Digest::MD5: 2.51
@@ -46,7 +49,7 @@ requires:
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
   repository: https://github.com/gknocke/Crypt-PKCS10.git
-version: 1.8
+version: 1.8001
 x_Dist_Zilla:
   perl:
     version: 5.008008
@@ -163,13 +166,6 @@ x_Dist_Zilla:
       name: ShareDir
       version: 5.043
     -
-      class: Dist::Zilla::Plugin::MakeMaker
-      config:
-        Dist::Zilla::Role::TestRunner:
-          default_jobs: 1
-      name: MakeMaker
-      version: 5.043
-    -
       class: Dist::Zilla::Plugin::PodWeaver
       config:
         Dist::Zilla::Plugin::PodWeaver:
@@ -271,6 +267,21 @@ x_Dist_Zilla:
           type: requires
       name: Prereqs
       version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Prereqs
+      config:
+        Dist::Zilla::Plugin::Prereqs:
+          phase: configure
+          type: requires
+      name: ConfigureRequires
+      version: 5.043
+    -
+      class: Dist::Zilla::Plugin::MakeMaker::Awesome
+      config:
+        Dist::Zilla::Role::TestRunner:
+          default_jobs: 1
+      name: MakeMaker::Awesome
+      version: 0.38
     -
       class: Dist::Zilla::Plugin::Prereqs
       config:

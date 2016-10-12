@@ -14,6 +14,7 @@ dist.ini
 examples/dump_csr
 examples/verify_csr
 lib/Crypt/PKCS10.pm
+makefile_test_ssl
 runbrew
 t/0-signature.t
 t/00-report-prereqs.dd

@@ -119,6 +119,11 @@ Revision history for perl module Crypt::PKCS10
  - When returning PEM, ensure max line width of 64 to satisfy RFC 7468, not 76 of MIME.
  - Fix test failures on some editions of 5.8.8 due to Perl bug 39185.  (Tripped in test, not module.)
 
-
+1.8001
+ - Makefile.pl: Diagnose old OpenSSL versions that fail signature verification and discard automated tests in that case.
+ - Print full OpenSSL configuration during automated testing.
+ - Require CryptX with version fix.
+ - Silence test warning if openssl command is missing.
+ - No changes to functional code.
 
 __END__

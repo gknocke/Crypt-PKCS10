@@ -34,10 +34,17 @@ subtest 'Basic functions' => sub {
     plan tests => 37;
 
  # Some useful information for automated testing reports
-    my $sslv = qx/openssl version/;
+    my $sslv;
+    {
+        local $SIG{__WARN__} = sub {};
+
+        $sslv = ( $ENV{AUTOMATED_TESTING}?
+                  qx/openssl version -a/ :
+                  qx/openssl version/ );
+    }
     if( $? == 0 && defined $sslv && length $sslv) {
         chomp $sslv;
-        $sslv = " / $sslv";
+        $sslv = $ENV{AUTOMATED_TESTING}? "\n$sslv": " / $sslv";
     } else {
         $sslv = '';
     }
