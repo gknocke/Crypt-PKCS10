@@ -126,8 +126,15 @@ Revision history for perl module Crypt::PKCS10
  - Silence test warning if openssl command is missing.
  - No changes to functional code.
 
-1.8001_01
+1.8002
  - Cosmetic: wrap long form OpenSSL config in test
+ - Make RSA, DSA and ECC support optional.  Warn during install none are present or any don't work.
+ - Signature verification requires the corresponding module, as does decoding ECC public keys.
+ - subjectPublicKeyParams and checkSignature set error() for unsupported key type or hash.
+ - Clean up carp/croak, especially where crept into evals.
+ - Provide instance method for error.
+ - Fix stringify's interactions with API v0.
+ - Add binaryMode and PEMonly options to provide finer grained control of formats
 
 
 __END__

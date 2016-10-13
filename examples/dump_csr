@@ -46,7 +46,7 @@ print $csr;
 
 unless( $csr->checkSignature ) {
     print "\n ***** Invalid signature *****\n";
-    print "Reason: " .  Crypt::PKCS10->error;
+    print "Reason: " .  $csr->error;
 }
 
 exit;

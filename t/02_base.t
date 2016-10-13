@@ -20,7 +20,7 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 10;
+use Test::More 0.94;
 
 use File::Spec;
 
@@ -30,38 +30,58 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 
 my $decoded;
 
-subtest 'Basic functions' => sub {
-    plan tests => 37;
+plan  tests => 11;
 
- # Some useful information for automated testing reports
-    my $sslv;
-    eval {
-        local $SIG{__WARN__} = sub {};
+# Basic functions test requires RSA
 
-        if( $ENV{AUTOMATED_TESTING} ) {
-            $sslv = qx/openssl version -a/;
-            return unless( defined $sslv );
+# Some useful information for automated testing reports
 
-            require Text::Wrap;
+my $sslver = eval {
+    local $SIG{__WARN__} = sub {};
 
-            $sslv =~ s/^((?:compiler|options):[ ]+)([^\n]*)\n/
-                     $1 . Text::Wrap::wrap( "", ' ' x 20, $2 ) . "\n"/gmsexi;
-        } else {
-            $sslv = qx/openssl version/;
+    my $text;
+    if( $ENV{AUTOMATED_TESTING} ) {
+        $text = qx/openssl version -a 2>&1/;
+        return unless( $? == 0 && defined $text && length $text &&
+                       $text !~ /invalid command/ );
+
+        # see makefile_test_ssl for info on 'algorithms'
+        # It would be a lot shorter, but too new (as of 2016)
+        # to employ.
+
+        my $ciphers = qx/openssl ciphers 2>&1/;
+        if( $? == 0 && defined $ciphers && length $ciphers &&
+            $ciphers !~ /invalid command/ ) {
+            chomp $ciphers;
+            $ciphers = join( ' ', sort split( /:/, $ciphers ) );
+            $text .= sprintf( "ciphers:          %s\n", $ciphers );
         }
-    };
-    if( $? == 0 && defined $sslv && length $sslv) {
-        chomp $sslv;
-        $sslv = $ENV{AUTOMATED_TESTING}? "\n$sslv": " / $sslv";
-    } else {
-        $sslv = '';
-    }
-    diag( sprintf( "Perl version %vd%s\n", $^V, $sslv ) );
-    ok( 1, 'configuration' );
 
-    BEGIN {
-	use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
+        require Text::Wrap;
+
+        $text =~ s/^((?:compiler|options|ciphers|algorithms):[ ]+)([^\n]*)\n/
+                 $1 . Text::Wrap::wrap( "", ' ' x 20, $2 ) . "\n"/gmsexi;
+    } else {
+        $text = qx/openssl version 2>&1/;
+        return unless( $? == 0 && defined $text && length $text &&
+                       $text !~ /invalid command/ );
     }
+    return $text;
+};
+if( defined $sslver && length $sslver) {
+    chomp $sslver;
+    $sslver = $ENV{AUTOMATED_TESTING}? "\n$sslver": " / $sslver";
+} else {
+    $sslver = '';
+}
+pass( 'configuration' );
+diag( sprintf( "Perl %s version %vd%s\n", $^X, $^V, $sslver ) );
+undef $sslver;
+
+subtest 'Basic functions' => sub {
+    plan tests => 38;
+
+    use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
 
     # Fixed public API methods
 
@@ -106,7 +126,7 @@ trailing junk
 more junk
 -CERT-
 
-    $decoded = Crypt::PKCS10->new( $csr, verifySignature => 0 );
+    $decoded = Crypt::PKCS10->new( $csr, PEMonly => 1, verifySignature => 0 );
 
     isnt( $decoded, undef, 'load PEM from variable' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -235,11 +255,15 @@ RyY=
 
     is( $decoded->signature(2), undef, 'signature decoding' );
 
-    ok( $decoded->checkSignature, 'verify CSR signature' );
+  SKIP: {
+        skip( "Crypt::OpenSSL::RSA not installed", 1 ) unless( eval { require Crypt::OpenSSL::RSA; } );
+
+        ok( $decoded->checkSignature, 'verify RSA CSR signature' );
+    }
 
     my $file = File::Spec->catpath( @dirpath, 'csr1.pem' );
 
-    $decoded = Crypt::PKCS10->new( $file, readFile => 1 );
+    $decoded = Crypt::PKCS10->new( $file, readFile => 1, verifySignature => 0 );
 
     isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -248,9 +272,9 @@ RyY=
     $file = File::Spec->catpath( @dirpath, 'csr1.cer' ); # N.B. Padding added to test removal
 
     if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr, { acceptPEM => 0, }, escapeStrings => 0 );
+	$decoded = Crypt::PKCS10->new( $csr, { verifySignature => 0, acceptPEM => 0, binaryMode => 1 }, escapeStrings => 0 );
     } else {
-	BAIL_OUT( "$file: $!\n" );;
+	BAIL_OUT( "$file: $!\n" );
     }
 
     isnt( $decoded, undef, 'load DER from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
@@ -314,26 +338,31 @@ RyY=
 
     my $bad;
 
-    if( open( my $csr, '<', $file ) ) {
-	$bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
-    } else {
-	BAIL_OUT( "$file: $!\n" );;
+  SKIP: {
+        skip( "Crypt::OpenSSL::RSA is not installed", 5 ) unless( eval { require Crypt::OpenSSL::RSA } );
+
+        if( open( my $csr, '<', $file ) ) {
+            $bad = Crypt::PKCS10->new( $csr, acceptPEM => 0, escapeStrings => 0 );
+        } else {
+            BAIL_OUT( "$file: $!\n" );
+        }
+
+        is( $bad, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+        $bad = Crypt::PKCS10->new( $file, readFile =>1, acceptPEM => 0, escapeStrings => 0,
+                                   verifySignature => 0 );
+        isnt( $bad, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
+
+        ok( !$bad->checkSignature, 'checkSignature returns false' );
+        ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
+        cmp_ok( Crypt::PKCS10->error, 'eq', $bad->error, 'class and instance error strings match' );
     }
-
-    is( $bad, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
-
-    $bad = Crypt::PKCS10->new( $file, readFile =>1, acceptPEM => 0, escapeStrings => 0,
-                               verifySignature => 0 );
-    isnt( $bad, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
-
-    ok( !$bad->checkSignature, 'checkSignature returns false' );
-    ok( defined Crypt::PKCS10->error, 'checkSignature sets error string' );
 
     $file = File::Spec->catpath( @dirpath, 'csr8.pem' );
 
-    is( Crypt::PKCS10->new( $file, readFile => 1 ), undef, 'reject invalid base64' );
+    is( Crypt::PKCS10->new( $file, readFile => 1, verifySignature => 0 ), undef, 'reject invalid base64' );
 
-    $bad = Crypt::PKCS10->new( $file, readFile => 1, ignoreNonBase64 => 1 );
+    $bad = Crypt::PKCS10->new( $file, readFile => 1, verifySignature => 0, ignoreNonBase64 => 1 );
 
     isnt( $bad, undef, 'accept invalid base64' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -379,7 +408,7 @@ subtest 'attribute functions' => sub {
 };
 
 subtest "basic extension functions" => sub {
-    plan tests => 17;
+    plan tests => 18;
 
     is_deeply( [ $decoded->extensions ],
 	       [ qw/basicConstraints keyUsage extKeyUsage subjectAltName
@@ -398,38 +427,40 @@ subtest "basic extension functions" => sub {
 	       'basicConstraints hash' );
 
 
-	is( $decoded->extensionValue( 'keyUsage', 1 ),
+    is( $decoded->extensionValue( 'keyUsage', 1 ),
 	    'keyEncipherment,nonRepudiation,digitalSignature', 'keyUsage string' );
-	is_deeply( $decoded->extensionValue( 'keyUsage'), [
-							   'keyEncipherment',
-							   'nonRepudiation',
-							   'digitalSignature',
-							  ], 'keyUsage array' );;
+    ok( ref $decoded->extensionValue('KeyUsage') eq 'ARRAY', 'KeyUsage is an arrayref' );
 
-	is( $decoded->extensionValue( 'extKeyUsage', 1 ),
+    is_deeply( $decoded->extensionValue( 'keyUsage'), [
+                                                       'keyEncipherment',
+                                                       'nonRepudiation',
+                                                       'digitalSignature',
+                                                      ], 'keyUsage array' );
+
+    is( $decoded->extensionValue( 'extKeyUsage', 1 ),
 'emailProtection,serverAuth,clientAuth,codeSigning,emailProtection,timeStamping,OCSPSigning',
-	    'extKeyUsage string' );
-	is_deeply( $decoded->extensionValue( 'extKeyUsage'), [
-							      'emailProtection',
-							      'serverAuth',
-							      'clientAuth',
-							      'codeSigning',
-							      'emailProtection',
-							      'timeStamping',
-							      'OCSPSigning',
-							  ], 'extKeyUsage array' );
+        'extKeyUsage string' );
+    is_deeply( $decoded->extensionValue( 'extKeyUsage'), [
+                                                          'emailProtection',
+                                                          'serverAuth',
+                                                          'clientAuth',
+                                                          'codeSigning',
+                                                          'emailProtection',
+                                                          'timeStamping',
+                                                          'OCSPSigning',
+                                                         ], 'extKeyUsage array' );
 
-	is( $decoded->extensionValue( 'subjectKeyIdentifier', 1 ), '0012459a',
-	    'subjectKeyIdentifier string' );
+    is( $decoded->extensionValue( 'subjectKeyIdentifier', 1 ), '0012459a',
+        'subjectKeyIdentifier string' );
 
-	is( $decoded->extensionValue( 'certificatePolicies', 1 ),
+    is( $decoded->extensionValue( 'certificatePolicies', 1 ),
 '(policyIdentifier=postOfficeBox,policyQualifier=((policyQualifierId=CPS,qualifier=http://there.example.net),'.
 '(policyQualifierId=CPS,qualifier=http://here.example.net),(policyQualifierId=userNotice,'.
 'qualifier=(explicitText="Trust but verify",userNotice=(noticeNumbers=(8,11),organization="Suspicious minds"))),'.
 '(policyQualifierId=userNotice,qualifier=(explicitText="Trust but verify",userNotice=(noticeNumbers=(8,11),'.
 'organization="Suspicious minds"))))),policyIdentifier=1.5.88.103',
-	    'certificatePolicies string' );
-	is_deeply( $decoded->extensionValue( 'certificatePolicies' ),
+        'certificatePolicies string' );
+    is_deeply( $decoded->extensionValue( 'certificatePolicies' ),
             [
 	     {
 	      'policyIdentifier' => 'postOfficeBox',
@@ -476,17 +507,17 @@ subtest "basic extension functions" => sub {
 	    ],
 		   'certificatePolicies array' );
 
-	is( $decoded->certificateTemplate, undef, 'certificateTemplate absent' );
+    is( $decoded->certificateTemplate, undef, 'certificateTemplate absent' );
 
-	is( $decoded->extensionValue('foo'), undef, 'extensionValue when extension absent' );
+    is( $decoded->extensionValue('foo'), undef, 'extensionValue when extension absent' );
 
-	is( $decoded->extensionValue('subjectAltName', 1),
-	    'rfc822Name=noway@none.com,uniformResourceIdentifier=htt' .
-	    'ps://fred.example.net,rfc822Name=someday@nowhere.exampl' .
-	    'e.com,dNSName=www.example.net,dNSName=www.example.com,d' .
-	    'NSName=example.net,dNSName=example.com,iPAddress=10.2.3' .
-	    '.4,iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', 'subjectAltName' );
-    };
+    is( $decoded->extensionValue('subjectAltName', 1),
+        'rfc822Name=noway@none.com,uniformResourceIdentifier=htt' .
+        'ps://fred.example.net,rfc822Name=someday@nowhere.exampl' .
+        'e.com,dNSName=www.example.net,dNSName=www.example.com,d' .
+        'NSName=example.net,dNSName=example.com,iPAddress=10.2.3' .
+        '.4,iPAddress=2001:0DB8:0741:0000:0000:0000:0000:0000', 'subjectAltName' );
+};
 
 subtest "subjectAltname" => sub {
     plan tests => 5;
@@ -590,9 +621,9 @@ subtest 'Microsoft extensions' => sub {
     my $file = File::Spec->catpath( @dirpath, 'csr2.pem' );
 
     if( open( my $csr, '<', $file ) ) {
-	$decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1 );
+	$decoded = Crypt::PKCS10->new( $csr, escapeStrings => 1, verifySignature => 0 );
     } else {
-	BAIL_OUT( "$file: $!\n" );;
+	BAIL_OUT( "$file: $!\n" );
     }
 
     isnt( $decoded, undef, 'load PEM from file handle' ) or BAIL_OUT( Crypt::PKCS10->error );
@@ -669,10 +700,11 @@ subtest 'stringify object' => sub {
 };
 
 subtest 'DSA requests' => sub {
-    plan tests => 4;
+    plan tests => 5;
 
     $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr5.pem' ),
-                                       readFile =>1, escapeStrings => 1 );
+                                   verifySignature => 0,
+                                   readFile =>1, escapeStrings => 1 );
 
     isnt( $decoded, undef, 'load PEM from filename' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -687,9 +719,38 @@ subtest 'DSA requests' => sub {
                }, 'subjectPublicKeyParams(DSA)' );
 
     is( $decoded->signature(2), undef, 'signature decoding' );
+  SKIP: {
+        skip( "Crypt::OpenSSL::DSA is not installed", 1 ) unless( eval { require Crypt::OpenSSL::DSA; } );
+
+        ok( $decoded->checkSignature, "verify DSA signature" );
+    }
 };
 
-    # API v0 tests needed
+subtest 'API v0' => sub {
+    plan tests => 7;
+
+    Crypt::PKCS10->setAPIversion( 0 );
+    my $csr = eval { Crypt::PKCS10->new( '', PEMonly => 1 ); };
+    is( $csr, undef, 'new is undef' );
+    ok( $@, 'failure throws exception' );
+    my $err = Crypt::PKCS10->error;
+    chomp $err;
+    like( $@, qr/(?ms:^$err\s+at .*02_base\.t line \d+.)/, 'failure returns error string' );
+
+    my $file = File::Spec->catpath( @dirpath, 'csr3.cer' );
+    $csr = eval { Crypt::PKCS10->new( $file, readFile => 1, acceptPEM => 0 ); };
+    isnt( $csr, undef, 'doesn\'t verify signature' );
+  SKIP: {
+        skip( "Crypt::OpenSSL::RSA is not installed", 1 ) unless( eval { require Crypt::OpenSSL::RSA } );
+
+        ok( !$csr->checkSignature, 'csr has bad signature' );
+    }
+    eval { $csr->subjectPublicKeyParams };
+    ok( $@, 'subjectPublicKeyParams throws exception' );
+    ok( ref $csr->extensionValue('KeyUsage') eq '', 'KeyUsage is a scalar' );
+
+    # More API v0 tests needed
+};
 
 
 1;

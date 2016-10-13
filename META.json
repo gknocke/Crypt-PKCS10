@@ -16,10 +16,12 @@
    "name" : "Crypt-PKCS10",
    "prereqs" : {
       "configure" : {
-         "requires" : {
+         "recommends" : {
             "Crypt::OpenSSL::DSA" : "0.15",
             "Crypt::OpenSSL::RSA" : "0.28",
-            "Crypt::PK::ECC" : "0.041",
+            "Crypt::PK::ECC" : "0.041"
+         },
+         "requires" : {
             "ExtUtils::MakeMaker" : "0",
             "Text::Wrap" : "2005.082401",
             "perl" : "5.008008"
@@ -36,12 +38,14 @@
          }
       },
       "runtime" : {
+         "recommends" : {
+            "Crypt::OpenSSL::DSA" : "0.15",
+            "Crypt::OpenSSL::RSA" : "0.28",
+            "Crypt::PK::ECC" : "0.041"
+         },
          "requires" : {
             "Carp" : "0",
             "Convert::ASN1" : "0.27",
-            "Crypt::OpenSSL::DSA" : "0.15",
-            "Crypt::OpenSSL::RSA" : "0.28",
-            "Crypt::PK::ECC" : "0.041",
             "Digest::MD2" : "2.03",
             "Digest::MD4" : "1.5",
             "Digest::MD5" : "2.51",
@@ -66,7 +70,7 @@
             "Module::Signature" : "0",
             "Socket" : "0",
             "Test::More" : "0.94",
-            "Text::Wrap" : "0",
+            "Text::Wrap" : "2005.082401",
             "perl" : "5.008008"
          }
       }
@@ -74,7 +78,7 @@
    "provides" : {
       "Crypt::PKCS10" : {
          "file" : "lib/Crypt/PKCS10.pm",
-         "version" : "1.800101"
+         "version" : "1.8002"
       }
    },
    "release_status" : "stable",
@@ -89,7 +93,7 @@
          "web" : "https://github.com/gknocke/Crypt-PKCS10"
       }
    },
-   "version" : "1.800101",
+   "version" : "1.8002",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"
@@ -345,7 +349,8 @@
                   "run" : [
                      "sed -i -e'/^=head1 AUTHOR/i=for readme start\\n\\n' %d%plib%pCrypt%pPKCS10.pm",
                      "./runbrew -in %d pod2readme -F             lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME .",
-                     "./runbrew -in %d pod2readme -F -f markdown lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME.md ."
+                     "./runbrew -in %d pod2readme -F -f markdown lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME.md .",
+                     "sed -i -e'/^__END__/d' %d%pChanges"
                   ]
                }
             },
@@ -372,11 +377,44 @@
             "class" : "Dist::Zilla::Plugin::Prereqs",
             "config" : {
                "Dist::Zilla::Plugin::Prereqs" : {
+                  "phase" : "runtime",
+                  "type" : "recommends"
+               }
+            },
+            "name" : "RuntimeRecommends",
+            "version" : "5.043"
+         },
+         {
+            "class" : "Dist::Zilla::Plugin::Prereqs",
+            "config" : {
+               "Dist::Zilla::Plugin::Prereqs" : {
                   "phase" : "configure",
                   "type" : "requires"
                }
             },
             "name" : "ConfigureRequires",
+            "version" : "5.043"
+         },
+         {
+            "class" : "Dist::Zilla::Plugin::Prereqs",
+            "config" : {
+               "Dist::Zilla::Plugin::Prereqs" : {
+                  "phase" : "configure",
+                  "type" : "recommends"
+               }
+            },
+            "name" : "ConfigureRecommends",
+            "version" : "5.043"
+         },
+         {
+            "class" : "Dist::Zilla::Plugin::Prereqs",
+            "config" : {
+               "Dist::Zilla::Plugin::Prereqs" : {
+                  "phase" : "test",
+                  "type" : "requires"
+               }
+            },
+            "name" : "TestRequires",
             "version" : "5.043"
          },
          {

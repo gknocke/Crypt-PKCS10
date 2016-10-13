@@ -20,14 +20,19 @@
 use strict;
 use warnings;
 
-use Test::More 0.94 tests => 24;
+use Test::More 0.94;
 
 use File::Spec;
 use Crypt::PKCS10;
-use Crypt::PK::ECC;
 
-diag( sprintf( "Perl version %vd\n", $^V ) );
-ok( 1, 'configuration' );
+unless( eval { require Crypt::PK::ECC; } ) {
+    plan skip_all => "Crypt::PK::ECC is not installed, skipping ECC tests";
+}
+
+plan tests => 24;
+
+pass( 'configuration' );
+diag( sprintf( "Perl %s version %vd\n", $^X, $^V ) );
 
 ok( Crypt::PKCS10->setAPIversion(1), 'setAPIversion 1' );
 
@@ -35,7 +40,7 @@ my @dirpath = (File::Spec->splitpath( $0 ))[0,1];
 
 my $decoded;
 $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr4.pem' ),
-                               readFile => 1, escapeStrings => 1 );
+                               readFile => 1, escapeStrings => 1, PEMonly => 1 );
 
 isnt( $decoded, undef, 'load PEM from file' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -117,7 +122,7 @@ is_deeply( $decoded->subjectPublicKeyParams(1), {
 
 
 $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr6.pem' ),
-                               readFile => 1, escapeStrings => 1 );
+                               readFile => 1, PEMonly => 1, escapeStrings => 1 );
 
 isnt( $decoded, undef, 'load PEM from file' ) or BAIL_OUT( Crypt::PKCS10->error );
 
@@ -134,12 +139,12 @@ is_deeply( $decoded->subjectPublicKeyParams,
 is( $decoded->signatureAlgorithm, 'ecdsa-with-SHA384', 'signature algorithm' );
 
 $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr7.pem' ),
-                               readFile => 1, escapeStrings => 1 );
+                               readFile => 1, PEMonly => 1, escapeStrings => 1 );
 
 is( $decoded, undef, 'bad signature rejected' ) or BAIL_OUT( Crypt::PKCS10->error );
 
 $decoded = Crypt::PKCS10->new( File::Spec->catpath( @dirpath, 'csr7.pem' ),
-                               readFile => 1, escapeStrings => 1, verifySignature => 0 );
+                               readFile => 1, PEMonly => 1, escapeStrings => 1, verifySignature => 0 );
 
 isnt( $decoded, undef, 'bad signature loaded' ) or BAIL_OUT( Crypt::PKCS10->error );
 
