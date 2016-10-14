@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.8001
+version 1.8002
 
 # SYNOPSIS
 
@@ -65,6 +65,12 @@ The ignoreNonBase64 option allows PEM to contain extraneous characters.
 
 # INSTALLATION
 
+`Crypt::PKCS10` supports DSA, RSA and ECC public keys in CSRs.
+
+It depends on `Crypt::OpenSSL::DSA`, `Crypt::OpenSSL::RSA` and `Crypt::PK::ECC`
+for some operations.  All are recommended.  Some methods will return errors if
+Crypt::PKCS10 is presented with a CSR containing an unsupported public key type.
+
 To install this module type the following:
 
     perl Makefile.PL
@@ -101,6 +107,9 @@ If a name component exists in a CSR, the method will be present.  The converse i
 Selects the API version (0 or 1) expected.
 
 Must be called before calling any other method.
+
+The API version determines how a CSR is parsed.  Changing the API version after
+parsing a CSR will cause accessors to produce unpredictable results.
 
 - Version 0 - **DEPRECATED**
 
@@ -156,10 +165,25 @@ If the first option is a HASHREF, it is expanded and any remaining options are a
 
     If **false**, the input must be in DER format.  `binmode` will be called on a file handle.
 
-    If **true**, the input is checked for a PEM certificate request.  If not found, the csr
+    If **true**, the input is checked for a `CERTIFICATE REQUEST` header.  If not found, the csr
     is assumed to be in DER format.
 
     Default is **true**.
+
+- PEMonly
+
+    If **true**, the input must be in PEM format.  An error will be returned if the input doesn't contain a `CERTIFICATE REQUEST` header.
+    If **false**, the input is parsed according to `acceptPEM`.
+
+    Default is **false**.
+
+- binaryMode
+
+    If **true**, an input file or file handle will be set to binary mode prior to reading.
+
+    If **false**, an input file or file handle's `binmode` will not be modified.
+
+    Defaults to **false** if **acceptPEM** is **true**, otherwise **true**.
 
 - escapeStrings
 
@@ -201,6 +225,11 @@ If the first option is a HASHREF, it is expanded and any remaining options are a
 
 No exceptions are generated.
 
+The defaults will accept either PEM or DER from a string or file hande, which will
+not be set to binary mode.  Automatic detection of the data format may not be
+reliable on file systems that represent text and binary files differently. Set
+`acceptPEM` to **false** and `PEMonly` to match the file type on these systems.
+
 The object will stringify to a human-readable representation of the CSR.  This is
 useful for debugging and perhaps for displaying a request.  However, the format
 is not part of the API and may change.  It should not be parsed by automated tools.
@@ -211,9 +240,16 @@ can extract.
 If another object inherits from `Crypt::PKCS10`, it can extend the representation
 by overloading or calling `as_string`.
 
-## class method error
+## {class} method error
 
 Returns a string describing the last error encountered;
+
+If called as an instance method, last error encountered by the object.
+
+If called as a class method, last error encountered by the class.
+
+Any method can reset the string to **undef**, so the results are
+only valid immediately after a method call.
 
 ## class method name2oid( $oid )
 
@@ -326,7 +362,10 @@ the public key type.
 
 ### Standard items:
 
-`keytype` - ECC, RSA, DSA
+`keytype` - ECC, RSA, DSA or `undef`
+
+`keytype` will be `undef` if the key type is not supported.  In
+this case, `error()` returns a diagnostic message.
 
 `keylen` - Approximate length of the key in bits.
 
@@ -489,13 +528,13 @@ Returns **true** otherwise.
 
 Verifies the signature of a CSR.  (Useful if new() specified `verifySignature => 0`.)
 
-Returns true if the signature is OK.
+Returns **true** if the signature is OK.
 
-Returns false if the signature is incorrect.  `Crypt::PKCS10->error` returns
+Returns **false** if the signature is incorrect.  `error()` returns
 the reason.
 
-Returns undef if there was an error in the verification process (e.g. a required
-Perl module could not be loaded.)
+Returns **undef** if it was not possible to complete the verification process (e.g. a required
+Perl module could not be loaded or an unsupported key/signature type is present.)
 
 ## certificateTemplate
 
@@ -754,6 +793,28 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Silence test warning if openssl command is missing.
 
      - No changes to functional code.
+
+    
+
+    1.8002
+
+     - Cosmetic: wrap long form OpenSSL config in test
+
+     - Make RSA, DSA and ECC support optional.  Warn during install none are present or any don't work.
+
+     - Signature verification requires the corresponding module, as does decoding ECC public keys.
+
+     - subjectPublicKeyParams and checkSignature set error() for unsupported key type or hash.
+
+     - Clean up carp/croak, especially where crept into evals.
+
+     - Provide instance method for error.
+
+     - Fix stringify's interactions with API v0.
+
+     - Add binaryMode and PEMonly options to provide finer grained control of formats
+
+    
 
     
 

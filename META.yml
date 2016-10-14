@@ -9,11 +9,9 @@ build_requires:
   Module::Signature: 0
   Socket: 0
   Test::More: 0.94
+  Text::Wrap: 2005.082401
   perl: 5.008008
 configure_requires:
-  Crypt::OpenSSL::DSA: 0.15
-  Crypt::OpenSSL::RSA: 0.28
-  Crypt::PK::ECC: 0.041
   ExtUtils::MakeMaker: 0
   Text::Wrap: 2005.082401
   perl: 5.008008
@@ -27,13 +25,14 @@ name: Crypt-PKCS10
 provides:
   Crypt::PKCS10:
     file: lib/Crypt/PKCS10.pm
-    version: 1.8001
-requires:
-  Carp: 0
-  Convert::ASN1: 0.27
+    version: 1.8002
+recommends:
   Crypt::OpenSSL::DSA: 0.15
   Crypt::OpenSSL::RSA: 0.28
   Crypt::PK::ECC: 0.041
+requires:
+  Carp: 0
+  Convert::ASN1: 0.27
   Digest::MD2: 2.03
   Digest::MD4: 1.5
   Digest::MD5: 2.51
@@ -49,7 +48,7 @@ requires:
 resources:
   bugtracker: https://rt.cpan.org/Public/Dist/Display.html?Name=Crypt-PKCS10
   repository: https://github.com/gknocke/Crypt-PKCS10.git
-version: 1.8001
+version: 1.8002
 x_Dist_Zilla:
   perl:
     version: 5.008008
@@ -253,6 +252,7 @@ x_Dist_Zilla:
             - "sed -i -e'/^=head1 AUTHOR/i=for readme start\\n\\n' %d%plib%pCrypt%pPKCS10.pm"
             - './runbrew -in %d pod2readme -F             lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME .'
             - './runbrew -in %d pod2readme -F -f markdown lib%pCrypt%pPKCS10.pm && cp -p %d%pREADME.md .'
+            - "sed -i -e'/^__END__/d' %d%pChanges"
       name: Run::BeforeArchive
       version: 0.043
     -
@@ -271,9 +271,33 @@ x_Dist_Zilla:
       class: Dist::Zilla::Plugin::Prereqs
       config:
         Dist::Zilla::Plugin::Prereqs:
+          phase: runtime
+          type: recommends
+      name: RuntimeRecommends
+      version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Prereqs
+      config:
+        Dist::Zilla::Plugin::Prereqs:
           phase: configure
           type: requires
       name: ConfigureRequires
+      version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Prereqs
+      config:
+        Dist::Zilla::Plugin::Prereqs:
+          phase: configure
+          type: recommends
+      name: ConfigureRecommends
+      version: 5.043
+    -
+      class: Dist::Zilla::Plugin::Prereqs
+      config:
+        Dist::Zilla::Plugin::Prereqs:
+          phase: test
+          type: requires
+      name: TestRequires
       version: 5.043
     -
       class: Dist::Zilla::Plugin::MakeMaker::Awesome
