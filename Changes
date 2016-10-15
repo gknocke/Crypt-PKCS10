@@ -136,5 +136,8 @@ Revision history for perl module Crypt::PKCS10
  - Fix stringify's interactions with API v0.
  - Add binaryMode and PEMonly options to provide finer grained control of formats
 
+1.8002_01
+ - Filter OpenSSL's 'WARNING: can't open config file' messages.
+
 
 __END__

@@ -4,7 +4,7 @@ Crypt::PKCS10 - parse PKCS #10 certificate requests
 
 # VERSION
 
-version 1.8002
+version 1.800201
 
 # SYNOPSIS
 
@@ -813,6 +813,12 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
      - Fix stringify's interactions with API v0.
 
      - Add binaryMode and PEMonly options to provide finer grained control of formats
+
+    
+
+    1.8002_01
+
+     - Filter OpenSSL's 'WARNING: can't open config file' messages.
 
     
 

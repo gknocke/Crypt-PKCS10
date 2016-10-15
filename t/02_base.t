@@ -42,19 +42,25 @@ my $sslver = eval {
     my $text;
     if( $ENV{AUTOMATED_TESTING} ) {
         $text = qx/openssl version -a 2>&1/;
-        return unless( $? == 0 && defined $text && length $text &&
+        return unless( $? == 0 && defined $text &&
                        $text !~ /invalid command/ );
+
+        $text =~ s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+        return unless( length $text );
 
         # see makefile_test_ssl for info on 'algorithms'
         # It would be a lot shorter, but too new (as of 2016)
         # to employ.
 
         my $ciphers = qx/openssl ciphers 2>&1/;
-        if( $? == 0 && defined $ciphers && length $ciphers &&
+        if( $? == 0 && defined $ciphers &&
             $ciphers !~ /invalid command/ ) {
-            chomp $ciphers;
-            $ciphers = join( ' ', sort split( /:/, $ciphers ) );
-            $text .= sprintf( "ciphers:          %s\n", $ciphers );
+            $ciphers =~  s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+            if( length $ciphers ) {
+                chomp $ciphers;
+                $ciphers = join( ' ', sort split( /:/, $ciphers ) );
+                $text .= sprintf( "ciphers:          %s\n", $ciphers );
+            }
         }
 
         require Text::Wrap;
@@ -63,8 +69,10 @@ my $sslver = eval {
                  $1 . Text::Wrap::wrap( "", ' ' x 20, $2 ) . "\n"/gmsexi;
     } else {
         $text = qx/openssl version 2>&1/;
-        return unless( $? == 0 && defined $text && length $text &&
+        return unless( $? == 0 && defined $text &&
                        $text !~ /invalid command/ );
+        $text =~ s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+        return unless( length $text );
     }
     return $text;
 };
@@ -76,6 +84,9 @@ if( defined $sslver && length $sslver) {
 }
 pass( 'configuration' );
 diag( sprintf( "Perl %s version %vd%s\n", $^X, $^V, $sslver ) );
+$sslver = join( ', ', map { !eval "require $_;"? ( /^.*::(.*)$/, ): () }
+                ( qw/Crypt::OpenSSL::DSA Crypt::OpenSSL::RSA/ ) ); # Expose subtest skips
+diag( "Skipping $sslver tests: no support\n" ) if( $sslver );
 undef $sslver;
 
 subtest 'Basic functions' => sub {
