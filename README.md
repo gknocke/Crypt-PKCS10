@@ -117,6 +117,8 @@ parsing a CSR will cause accessors to produce unpredictable results.
 
     This is the format used for `Crypt::PKCS10` version 1.3 and lower.  The attributes method returns legacy data.
 
+    Some new API functions are disabled.
+
 - Version 1
 
     OID names from RFCs - or at least compatible with OpenSSL and ASN.1 notation.  The attributes method conforms to version 1.
@@ -185,6 +187,14 @@ If the first option is a HASHREF, it is expanded and any remaining options are a
 
     Defaults to **false** if **acceptPEM** is **true**, otherwise **true**.
 
+- dieOnError
+
+    If **true**, any API function that sets an error string will also `die`.
+
+    If **false**, exceptions are only generated for fatal conditions.
+
+    The default is **false**.  API version 1 only..
+
 - escapeStrings
 
     If **true**, strings returned for extension and attribute values are '\\'-escaped when formatted.
@@ -217,13 +227,14 @@ If the first option is a HASHREF, it is expanded and any remaining options are a
 
 - verifySignature
 
-    If **true**, the CSR's signature is checked.  If verification fails, `new` will fail.
+    If **true**, the CSR's signature is checked.  If verification fails, `new` will fail.  Requires API version 1.
 
     If **false**, the CSR's signature is not checked.
 
     The default is **true** for API version 1 and **false** for API version 0.
 
-No exceptions are generated.
+No exceptions are generated, unless `dieOnError` is set or `new()` is called in
+void context.
 
 The defaults will accept either PEM or DER from a string or file hande, which will
 not be set to binary mode.  Automatic detection of the data format may not be
@@ -819,6 +830,14 @@ Equivalent to `extensionValue( 'certificateTemplate' )`, which is prefered.
     1.8002_01
 
      - Filter OpenSSL's 'WARNING: can't open config file' messages.
+
+     - Add dieOnError option to new()
+
+     - Report undefined $csr gracefully
+
+     - API v0 tests should not try to verify a signature.
+
+     - new() in void context will generate an exception.
 
     
 

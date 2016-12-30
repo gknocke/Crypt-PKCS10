@@ -90,7 +90,7 @@ diag( "Skipping $sslver tests: no support\n" ) if( $sslver );
 undef $sslver;
 
 subtest 'Basic functions' => sub {
-    plan tests => 38;
+    plan tests => 40;
 
     use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
 
@@ -136,6 +136,12 @@ RyYABCGHIzz=
 trailing junk
 more junk
 -CERT-
+
+    $decoded = eval { Crypt::PKCS10->new( undef, dieOnError => 1, verifySignature => 0 ) };
+    like( $@, qr/^\$csr argument to new\(\) is not defined at /, "dieOnError generates exception" ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    $decoded = eval { Crypt::PKCS10->new( undef, verifySignature => 0 ); 1 };
+    like( $@, qr/^Value of Crypt::PKCS10->new ignored at /, "new() in void context generates exception" ) or BAIL_OUT( Crypt::PKCS10->error );
 
     $decoded = Crypt::PKCS10->new( $csr, PEMonly => 1, verifySignature => 0 );
 
@@ -738,7 +744,7 @@ subtest 'DSA requests' => sub {
 };
 
 subtest 'API v0' => sub {
-    plan tests => 7;
+    plan tests => 6;
 
     Crypt::PKCS10->setAPIversion( 0 );
     my $csr = eval { Crypt::PKCS10->new( '', PEMonly => 1 ); };
@@ -751,11 +757,6 @@ subtest 'API v0' => sub {
     my $file = File::Spec->catpath( @dirpath, 'csr3.cer' );
     $csr = eval { Crypt::PKCS10->new( $file, readFile => 1, acceptPEM => 0 ); };
     isnt( $csr, undef, 'doesn\'t verify signature' );
-  SKIP: {
-        skip( "Crypt::OpenSSL::RSA is not installed", 1 ) unless( eval { require Crypt::OpenSSL::RSA } );
-
-        ok( !$csr->checkSignature, 'csr has bad signature' );
-    }
     eval { $csr->subjectPublicKeyParams };
     ok( $@, 'subjectPublicKeyParams throws exception' );
     ok( ref $csr->extensionValue('KeyUsage') eq '', 'KeyUsage is a scalar' );

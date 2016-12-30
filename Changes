@@ -138,6 +138,10 @@ Revision history for perl module Crypt::PKCS10
 
 1.8002_01
  - Filter OpenSSL's 'WARNING: can't open config file' messages.
+ - Add dieOnError option to new()
+ - Report undefined $csr gracefully
+ - API v0 tests should not try to verify a signature.
+ - new() in void context will generate an exception.
 
 
 __END__
