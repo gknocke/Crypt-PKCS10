@@ -11,7 +11,7 @@
    ],
    "meta-spec" : {
       "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
-      "version" : "2"
+      "version" : 2
    },
    "name" : "Crypt-PKCS10",
    "prereqs" : {
@@ -78,7 +78,7 @@
    "provides" : {
       "Crypt::PKCS10" : {
          "file" : "lib/Crypt/PKCS10.pm",
-         "version" : "1.8002"
+         "version" : "1.800201"
       }
    },
    "release_status" : "stable",
@@ -93,7 +93,7 @@
          "web" : "https://github.com/gknocke/Crypt-PKCS10"
       }
    },
-   "version" : "1.8002",
+   "version" : "1.800201",
    "x_Dist_Zilla" : {
       "perl" : {
          "version" : "5.008008"

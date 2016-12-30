@@ -42,19 +42,25 @@ my $sslver = eval {
     my $text;
     if( $ENV{AUTOMATED_TESTING} ) {
         $text = qx/openssl version -a 2>&1/;
-        return unless( $? == 0 && defined $text && length $text &&
+        return unless( $? == 0 && defined $text &&
                        $text !~ /invalid command/ );
+
+        $text =~ s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+        return unless( length $text );
 
         # see makefile_test_ssl for info on 'algorithms'
         # It would be a lot shorter, but too new (as of 2016)
         # to employ.
 
         my $ciphers = qx/openssl ciphers 2>&1/;
-        if( $? == 0 && defined $ciphers && length $ciphers &&
+        if( $? == 0 && defined $ciphers &&
             $ciphers !~ /invalid command/ ) {
-            chomp $ciphers;
-            $ciphers = join( ' ', sort split( /:/, $ciphers ) );
-            $text .= sprintf( "ciphers:          %s\n", $ciphers );
+            $ciphers =~  s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+            if( length $ciphers ) {
+                chomp $ciphers;
+                $ciphers = join( ' ', sort split( /:/, $ciphers ) );
+                $text .= sprintf( "ciphers:          %s\n", $ciphers );
+            }
         }
 
         require Text::Wrap;
@@ -63,8 +69,10 @@ my $sslver = eval {
                  $1 . Text::Wrap::wrap( "", ' ' x 20, $2 ) . "\n"/gmsexi;
     } else {
         $text = qx/openssl version 2>&1/;
-        return unless( $? == 0 && defined $text && length $text &&
+        return unless( $? == 0 && defined $text &&
                        $text !~ /invalid command/ );
+        $text =~ s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+        return unless( length $text );
     }
     return $text;
 };
@@ -76,10 +84,13 @@ if( defined $sslver && length $sslver) {
 }
 pass( 'configuration' );
 diag( sprintf( "Perl %s version %vd%s\n", $^X, $^V, $sslver ) );
+$sslver = join( ', ', map { !eval "require $_;"? ( /^.*::(.*)$/, ): () }
+                ( qw/Crypt::OpenSSL::DSA Crypt::OpenSSL::RSA/ ) ); # Expose subtest skips
+diag( "Skipping $sslver tests: no support\n" ) if( $sslver );
 undef $sslver;
 
 subtest 'Basic functions' => sub {
-    plan tests => 38;
+    plan tests => 40;
 
     use_ok('Crypt::PKCS10') or BAIL_OUT( "Can't load Crypt::PKCS10" );
 
@@ -125,6 +136,12 @@ RyYABCGHIzz=
 trailing junk
 more junk
 -CERT-
+
+    $decoded = eval { Crypt::PKCS10->new( undef, dieOnError => 1, verifySignature => 0 ) };
+    like( $@, qr/^\$csr argument to new\(\) is not defined at /, "dieOnError generates exception" ) or BAIL_OUT( Crypt::PKCS10->error );
+
+    $decoded = eval { Crypt::PKCS10->new( undef, verifySignature => 0 ); 1 };
+    like( $@, qr/^Value of Crypt::PKCS10->new ignored at /, "new() in void context generates exception" ) or BAIL_OUT( Crypt::PKCS10->error );
 
     $decoded = Crypt::PKCS10->new( $csr, PEMonly => 1, verifySignature => 0 );
 
@@ -727,7 +744,7 @@ subtest 'DSA requests' => sub {
 };
 
 subtest 'API v0' => sub {
-    plan tests => 7;
+    plan tests => 6;
 
     Crypt::PKCS10->setAPIversion( 0 );
     my $csr = eval { Crypt::PKCS10->new( '', PEMonly => 1 ); };
@@ -740,11 +757,6 @@ subtest 'API v0' => sub {
     my $file = File::Spec->catpath( @dirpath, 'csr3.cer' );
     $csr = eval { Crypt::PKCS10->new( $file, readFile => 1, acceptPEM => 0 ); };
     isnt( $csr, undef, 'doesn\'t verify signature' );
-  SKIP: {
-        skip( "Crypt::OpenSSL::RSA is not installed", 1 ) unless( eval { require Crypt::OpenSSL::RSA } );
-
-        ok( !$csr->checkSignature, 'csr has bad signature' );
-    }
     eval { $csr->subjectPublicKeyParams };
     ok( $@, 'subjectPublicKeyParams throws exception' );
     ok( ref $csr->extensionValue('KeyUsage') eq '', 'KeyUsage is a scalar' );

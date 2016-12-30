@@ -170,28 +170,37 @@ _KEY_
             local $SIG{__WARN__} = sub {};
 
             my $text = qx/openssl version -a 2>&1/;
-            return unless( $? == 0 && defined $text && length $text &&
+            return unless( $? == 0 && defined $text &&
                            $text !~ /invalid command/ );
+
+            $text =~ s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+            return unless( length $text );
 
             # list-public-key-algorithms would be cleaner, but isn't present in
             # OpenSSL 0.9.8, which is still in use in 2016.
 
             if( 0 ) {
                 my $algorithms = qx/openssl list-public-key-algorithms 2>&1/;
-                if( $? == 0 && defined $algorithms && length $algorithms &&
+                if( $? == 0 && defined $algorithms &&
                     $algorithms !~ /invalid command/ ) {
-                    $algorithms = join( ' ',
-                                        sort map { /^\s*OID:\s*(.*)$/? (qq("$1"),) : ()  }
-                                        split( /\n/, $algorithms ) );
-                    $text .= sprintf( "algorithms:   %s\n", $algorithms );
+                    $algorithms =~  s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+                    if( length $algorithms ) {
+                        $algorithms = join( ' ',
+                                            sort map { /^\s*OID:\s*(.*)$/? (qq("$1"),) : ()  }
+                                            split( /\n/, $algorithms ) );
+                        $text .= sprintf( "algorithms:   %s\n", $algorithms );
+                    }
                 }
             } else {
                 my $ciphers = qx/openssl ciphers 2>&1/;
-                if( $? == 0 && defined $ciphers && length $ciphers &&
+                if( $? == 0 && defined $ciphers &&
                     $ciphers !~ /invalid command/ ) {
-                    chomp $ciphers;
-                    $ciphers = join( ' ', sort split( /:/, $ciphers ) );
-                    $text .= sprintf( "ciphers:      %s\n", $ciphers );
+                    $ciphers =~  s/(?msi:^WARNING:(?: can't open config file:)?[^\n]*\n)//g;
+                    if( length $ciphers ) {
+                        chomp $ciphers;
+                        $ciphers = join( ' ', sort split( /:/, $ciphers ) );
+                        $text .= sprintf( "ciphers:      %s\n", $ciphers );
+                    }
                 }
             }
 
@@ -283,7 +292,7 @@ my %WriteMakefileArgs = (
     "Test::More" => "0.94",
     "Text::Wrap" => "2005.082401"
   },
-  "VERSION" => "1.8002",
+  "VERSION" => "1.800201",
   "test" => {
     "TESTS" => "t/*.t"
   }

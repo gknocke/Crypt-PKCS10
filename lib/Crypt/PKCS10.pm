@@ -22,7 +22,7 @@ use Encode ();
 use MIME::Base64;
 use Scalar::Util ();
 
-our $VERSION = 1.8002;
+our $VERSION = 1.8002_01;
 
 my $apiVersion = undef;  # 0 for compatibility.  1 for prefered
 my $error;
@@ -399,12 +399,14 @@ sub new {
 	$class->setAPIversion(0);
     }
 
+    my( $void, $die ) = ( !defined wantarray, 0 );
     my $self = eval {
         die( "Insufficient arguments for new\n" ) unless( defined $class && @_ >= 1 );
-	return $class->_new( @_ );
+        die( "Value of Crypt::PKCS10->new ignored\n" ) if( $void );
+	return $class->_new( \$die, @_ );
     }; if( $@ ) {
 	$error = $@;
-        unless( $apiVersion ) {
+        if( !$apiVersion || $die || !defined wantarray ) {
             1 while( chomp $@ );
             croak( $@ );
         }
@@ -428,8 +430,7 @@ sub error {
 my $pemre = qr/(?ms:^\r?-----BEGIN\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?\n\s*(.*?)\s*^\r?-----END\s(?:NEW\s)?CERTIFICATE\sREQUEST-----\r?$)/;
 
 sub _new {
-    my $class  = shift;
-    my $der    = shift;
+    my( $class, $die, $der ) = splice( @_, 0, 3 );
 
     my %options = (
                    acceptPEM       => 1,
@@ -438,6 +439,7 @@ sub _new {
                    readFile        => 0,
                    ignoreNonBase64 => 0,
                    verifySignature => ($apiVersion >= 1),
+                   dieOnError      => 0,
                   );
 
     %options = ( %options, %{ shift @_ } ) if( @_ >= 1 && ref( $_[0] ) eq 'HASH' );
@@ -448,7 +450,14 @@ sub _new {
 
     my $self = { _apiVersion => $apiVersion };
 
-    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:escapeStrings|acceptPEM|PEMonly|binaryMode|readFile|verifySignature|ignoreNonBase64|warnings)$/ } keys %options);
+    my $keys = join( '|', qw/escapeStrings acceptPEM PEMonly binaryMode readFile verifySignature ignoreNonBase64 warnings dieOnError/ );
+
+    $self->{"_$_"} = delete $options{$_} foreach (grep { /^(?:$keys)$/ } keys %options);
+
+    $$die = $self->{_dieOnError} &&= $apiVersion >= 1;
+
+    die( "\$csr argument to new() is not defined\n" ) unless( defined $der );
+
     if( keys %options ) {
 	die( "Invalid option(s) specified: " . join( ', ', sort keys %options ) . "\n" );
     }
@@ -1241,6 +1250,7 @@ sub subjectPublicKeyParams {
             $rv->{keytype} = undef;
             $self->{_error} =
               $error = "ECC public key requires Crypt::PK::ECC\n";
+            croak( $error ) if( $self->{_dieOnError} );
             return $rv;
         }
         my $key = $self->subjectPublicKey(1);
@@ -1269,6 +1279,7 @@ sub subjectPublicKeyParams {
         $rv->{keytype} = undef;
         $self->{_error} =
           $error = "Unrecognized public key type $at\n";
+        croak( $error ) if( $self->{_dieOnError} );
     }
     return $rv;
 }
@@ -1582,12 +1593,14 @@ sub checkSignature {
     if( $@ ) {
         $self->{_error} =
           $error = $@;
+        croak( $error ) if( $self->{_dieOnError} );
         return;
     }
     return 1 if( $ok );
 
     $self->{_error} =
       $error = "Incorrect signature\n";
+    croak( $error ) if( $self->{_dieOnError} );
 
     return 0;
 }
@@ -1846,6 +1859,8 @@ Some OID names have spaces and descriptions
 
 This is the format used for C<Crypt::PKCS10> version 1.3 and lower.  The attributes method returns legacy data.
 
+Some new API functions are disabled.
+
 =item Version 1
 
 OID names from RFCs - or at least compatible with OpenSSL and ASN.1 notation.  The attributes method conforms to version 1.
@@ -1920,6 +1935,14 @@ If B<false>, an input file or file handle's C<binmode> will not be modified.
 
 Defaults to B<false> if B<acceptPEM> is B<true>, otherwise B<true>.
 
+=item dieOnError
+
+If B<true>, any API function that sets an error string will also C<die>.
+
+If B<false>, exceptions are only generated for fatal conditions.
+
+The default is B<false>.  API version 1 only..
+
 =item escapeStrings
 
 If B<true>, strings returned for extension and attribute values are '\'-escaped when formatted.
@@ -1952,7 +1975,7 @@ The default is B<false>.
 
 =item verifySignature
 
-If B<true>, the CSR's signature is checked.  If verification fails, C<new> will fail.
+If B<true>, the CSR's signature is checked.  If verification fails, C<new> will fail.  Requires API version 1.
 
 If B<false>, the CSR's signature is not checked.
 
@@ -1960,7 +1983,8 @@ The default is B<true> for API version 1 and B<false> for API version 0.
 
 =back
 
-No exceptions are generated.
+No exceptions are generated, unless C<dieOnError> is set or C<new()> is called in
+void context.
 
 The defaults will accept either PEM or DER from a string or file hande, which will
 not be set to binary mode.  Automatic detection of the data format may not be
